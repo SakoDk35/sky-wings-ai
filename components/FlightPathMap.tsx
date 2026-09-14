@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -29,19 +29,19 @@ const FlightPathMap: React.FC<FlightPathMapProps> = ({ origin, destination }) =>
   const createCurvedPath = () => {
     const points: [number, number][] = [];
     const segments = 50;
-    
+
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       // Simple interpolation with slight curve
       const lat = originCoords.lat + (destCoords.lat - originCoords.lat) * t;
       const lng = originCoords.lng + (destCoords.lng - originCoords.lng) * t;
-      
+
       // Add slight arc for visual appeal (higher latitude for long distances)
       const distance = Math.sqrt(
-        Math.pow(destCoords.lat - originCoords.lat, 2) + 
+        Math.pow(destCoords.lat - originCoords.lat, 2) +
         Math.pow(destCoords.lng - originCoords.lng, 2)
       );
-      
+
       if (distance > 20) { // Only curve for long flights
         const arcHeight = Math.sin(t * Math.PI) * (distance * 0.1);
         points.push([lat + arcHeight, lng]);
@@ -49,7 +49,7 @@ const FlightPathMap: React.FC<FlightPathMapProps> = ({ origin, destination }) =>
         points.push([lat, lng]);
       }
     }
-    
+
     return points;
   };
 
@@ -71,7 +71,7 @@ const FlightPathMap: React.FC<FlightPathMapProps> = ({ origin, destination }) =>
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
-        
+
         {/* Curved flight path */}
         <Polyline
           positions={pathPoints}
@@ -80,14 +80,14 @@ const FlightPathMap: React.FC<FlightPathMapProps> = ({ origin, destination }) =>
           opacity={0.8}
           dashArray="10, 10"
         />
-        
+
         {/* Origin Marker */}
         <Marker position={[originCoords.lat, originCoords.lng]}>
           <Popup>
             <strong>{origin}</strong><br />Departure
           </Popup>
         </Marker>
-        
+
         {/* Destination Marker */}
         <Marker position={[destCoords.lat, destCoords.lng]}>
           <Popup>
@@ -95,7 +95,7 @@ const FlightPathMap: React.FC<FlightPathMapProps> = ({ origin, destination }) =>
           </Popup>
         </Marker>
       </MapContainer>
-      
+
       {/* Map overlay info */}
       <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 z-[400]">
         <div className="flex items-center gap-2">

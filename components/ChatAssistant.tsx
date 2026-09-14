@@ -18,7 +18,7 @@ export const ChatAssistant: React.FC = () => {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   // Keep chat session in ref to persist across renders
   const chatSessionRef = useRef(createChatSession());
 
@@ -46,10 +46,10 @@ export const ChatAssistant: React.FC = () => {
 
     try {
       const responseStream = await chatSessionRef.current.sendMessageStream({ message: input });
-      
+
       let fullText = '';
       const botMsgId = (Date.now() + 1).toString();
-      
+
       // Add placeholder for streaming message
       setMessages(prev => [...prev, {
         id: botMsgId,
@@ -64,18 +64,18 @@ export const ChatAssistant: React.FC = () => {
         const textChunk = c.text || '';
         fullText += textChunk;
 
-        setMessages(prev => prev.map(msg => 
-          msg.id === botMsgId 
-            ? { ...msg, text: fullText } 
+        setMessages(prev => prev.map(msg =>
+          msg.id === botMsgId
+            ? { ...msg, text: fullText }
             : msg
         ));
       }
-      
+
       // Finalize message
-      setMessages(prev => prev.map(msg => 
-        msg.id === botMsgId 
-            ? { ...msg, isStreaming: false } 
-            : msg
+      setMessages(prev => prev.map(msg =>
+        msg.id === botMsgId
+          ? { ...msg, isStreaming: false }
+          : msg
       ));
 
     } catch (error) {
@@ -104,7 +104,7 @@ export const ChatAssistant: React.FC = () => {
               <div>
                 <h3 className="font-semibold text-sm">Sky Wings Assistant</h3>
                 <p className="text-xs text-brand-100 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"/> Online
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Online
                 </p>
               </div>
             </div>
@@ -121,19 +121,18 @@ export const ChatAssistant: React.FC = () => {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
-                    msg.role === 'user'
+                  className={`max-w-[80%] rounded-2xl p-3 text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${msg.role === 'user'
                       ? 'bg-brand-600 text-white rounded-tr-sm'
                       : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-tl-sm'
-                  }`}
+                    }`}
                 >
                   {msg.role === 'model' && (
                     <div className="flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-bold mb-1">
-                       <Sparkles size={10} /> AI Insight
+                      <Sparkles size={10} /> AI Insight
                     </div>
                   )}
                   {msg.text}
-                  {msg.isStreaming && <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-brand-500 animate-pulse"/>}
+                  {msg.isStreaming && <span className="inline-block w-1.5 h-4 ml-1 align-middle bg-brand-500 animate-pulse" />}
                 </div>
               </div>
             ))}

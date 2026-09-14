@@ -34,10 +34,10 @@ const extractCarrierCode = (airline: string): string | null => {
   // Try to extract code from parentheses first (e.g., "Air France (AF)")
   const parenMatch = airline.match(/\(([A-Z]{2})\)/);
   if (parenMatch) return parenMatch[1];
-  
+
   // If airline string is just 2 uppercase letters, use it directly
   if (/^[A-Z]{2}$/.test(airline.trim())) return airline.trim();
-  
+
   return null;
 };
 
@@ -47,13 +47,13 @@ const getAirlineLogo = (airline: string, carrierCode?: string) => {
   if (carrierCode) {
     return `https://pics.avs.io/al_square/64/${carrierCode.toUpperCase()}.png`;
   }
-  
+
   // Priority 2: Try to extract IATA code from airline string
   const extractedCode = extractCarrierCode(airline);
   if (extractedCode) {
     return `https://pics.avs.io/al_square/64/${extractedCode.toUpperCase()}.png`;
   }
-  
+
   // Priority 3: Manual mapping for airlines without proper code format
   // This handles cases like "Emirates EK" or just "Emirates"
   const airlineCodeMap: Record<string, string> = {
@@ -98,14 +98,14 @@ const getAirlineLogo = (airline: string, carrierCode?: string) => {
     'gulf': 'GF',
     'royal jordanian': 'RJ',
   };
-  
+
   const lowerAirline = airline.toLowerCase();
   for (const [name, code] of Object.entries(airlineCodeMap)) {
     if (lowerAirline.includes(name)) {
       return `https://pics.avs.io/al_square/64/${code.toUpperCase()}.png`;
     }
   }
-  
+
   // Priority 4: Return null to trigger CSS fallback
   return null;
 };
@@ -118,7 +118,7 @@ const getFallbackLogo = (airline: string) => {
     .join('')
     .toUpperCase()
     .substring(0, 2);
-  
+
   return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(initials)}&backgroundColor=0ea5e9&textColor=ffffff&fontSize=36&bold=true`;
 };
 
@@ -126,7 +126,7 @@ const getFallbackLogo = (airline: string) => {
 export const AirlineLogo: React.FC<{ airline: string, carrierCode?: string, className?: string }> = ({ airline, carrierCode, className }) => {
   const [imgSrc, setImgSrc] = useState<string | null>(getAirlineLogo(airline, carrierCode));
   const [useCssFallback, setUseCssFallback] = useState(false);
-  
+
   // Reset state when airline or carrierCode changes (important for list rendering)
   useEffect(() => {
     const logoUrl = getAirlineLogo(airline, carrierCode);
@@ -144,7 +144,7 @@ export const AirlineLogo: React.FC<{ airline: string, carrierCode?: string, clas
   if (useCssFallback) {
     const initial = airline.charAt(0).toUpperCase();
     return (
-      <div 
+      <div
         className={`${className} bg-gradient-to-br from-sky-500 to-blue-600 dark:from-sky-600 dark:to-blue-700 flex items-center justify-center text-white font-bold rounded-full`}
         style={{ minWidth: '24px' }}
       >
@@ -154,9 +154,9 @@ export const AirlineLogo: React.FC<{ airline: string, carrierCode?: string, clas
   }
 
   return (
-    <img 
-      src={imgSrc || ''} 
-      alt={airline} 
+    <img
+      src={imgSrc || ''}
+      alt={airline}
       className={`${className} object-contain`}
       onError={handleError}
       loading="lazy"
@@ -184,13 +184,13 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
   const [risks, setRisks] = useState<Record<string, RiskAnalysis>>({});
   const [mlPredictions, setMlPredictions] = useState<Record<string, MLPrediction>>({});
   const [bookingTimings, setBookingTimings] = useState<Record<string, { optimalWindow: string; currentDaysBefore: number; recommendation: string; urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH' }>>({});
-  
+
   // Toggle States for Expandable Sections
   const [expandedAmenities, setExpandedAmenities] = useState<Record<string, boolean>>({});
   const [expandedAI, setExpandedAI] = useState<Record<string, boolean>>({});
   const [expandedPath, setExpandedPath] = useState<Record<string, boolean>>({});
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({}); // Unified flight details
-  
+
   // Sorting and Filtering State
   const [sortBy, setSortBy] = useState<string>('price_asc');
   const [filterStops, setFilterStops] = useState<number[]>([]); // empty = all
@@ -223,7 +223,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     setBookingTimings({});
     setExpandedId(null);
     setSearchError(null);
-    
+
     const formData = new FormData(e.currentTarget);
     const origin = formData.get('origin') as string;
     const destination = formData.get('destination') as string;
@@ -234,7 +234,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
     try {
       const realFlights = await findRealFlights(origin, destination, date, returnDate, passengers, travelClass);
-      
+
       if (realFlights && realFlights.length > 0) {
         setResults(realFlights);
         // Auto-run AI analysis for all flights after a short delay
@@ -253,15 +253,15 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
   const runAIAnalysis = async (flight: Flight, allFlights?: Flight[]) => {
     setAnalyzingId(flight.id);
-    
+
     try {
       // Use provided flights array or fallback to current results from state
       const flightsToUse = allFlights || results;
-      
+
       console.log('[FlightSearch] Running AI analysis for flight:', flight.id);
       console.log('[FlightSearch] Total flights in search results:', flightsToUse.length);
       console.log('[FlightSearch] Passing', flightsToUse.length, 'flights to Price Intelligence engine');
-      
+
       const [priceAnalysis, riskAnalysis, mlPrediction, bookingTiming] = await Promise.all([
         analyzeFlightPrice(flight, flightsToUse),
         analyzeTripRisk(flight.destination, flight.departureTime || 'Upcoming'),
@@ -279,8 +279,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
       // Handle rate limit (429) gracefully
       if (error?.message?.includes('429') || error?.status === 429) {
         // Set a pending state instead of showing error
-        setPredictions(prev => ({ 
-          ...prev, 
+        setPredictions(prev => ({
+          ...prev,
           [flight.id]: {
             recommendation: 'MONITOR' as const,
             confidence: 0,
@@ -307,16 +307,16 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     setBookingStatus('processing');
     // Simulate API call delay
     setTimeout(() => {
-        setBookingStatus('confirmed');
-        if (selectedFlight) {
-            onBookingComplete(selectedFlight);
-        }
+      setBookingStatus('confirmed');
+      if (selectedFlight) {
+        onBookingComplete(selectedFlight);
+      }
     }, 2000);
   };
 
   const closeBookingModal = () => {
-      setSelectedFlight(null);
-      setBookingStatus('idle');
+    setSelectedFlight(null);
+    setBookingStatus('idle');
   };
 
   const toggleDetails = (id: string) => {
@@ -380,7 +380,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     if (filterStops.length > 0) {
       res = res.filter(f => {
         if (filterStops.includes(2)) {
-           return filterStops.includes(f.stops) || f.stops >= 2;
+          return filterStops.includes(f.stops) || f.stops >= 2;
         }
         return filterStops.includes(f.stops);
       });
@@ -394,11 +394,11 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     // Sort
     res.sort((a, b) => {
       switch (sortBy) {
-        case 'price_asc': 
+        case 'price_asc':
           return Number(a.price) - Number(b.price);
-        case 'price_desc': 
+        case 'price_desc':
           return Number(b.price) - Number(a.price);
-        case 'duration': 
+        case 'duration':
           return parseDurationToMinutes(a.duration) - parseDurationToMinutes(b.duration);
         case 'departure':
           return (a.departureTime || '').localeCompare(b.departureTime || '');
@@ -449,13 +449,13 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
   }, [filteredAndSortedResults]);
 
   const toggleStopFilter = (stop: number) => {
-    setFilterStops(prev => 
+    setFilterStops(prev =>
       prev.includes(stop) ? prev.filter(s => s !== stop) : [...prev, stop]
     );
   };
 
   const toggleAirlineFilter = (airline: string) => {
-    setFilterAirlines(prev => 
+    setFilterAirlines(prev =>
       prev.includes(airline) ? prev.filter(a => a !== airline) : [...prev, airline]
     );
   };
@@ -474,46 +474,46 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
           {t('Find Your Perfect Flight', 'ابحث عن رحلتك المثالية')}
         </h2>
         <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          
+
           {/* Origin */}
           <div className="relative group">
             <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
               <MapPin className="text-slate-400 group-focus-within:text-brand-500" size={18} />
             </div>
-            <input 
+            <input
               name="origin"
-              type="text" 
-              placeholder={t('From (e.g. London)', 'من (مثل: لندن)')} 
+              type="text"
+              placeholder={t('From (e.g. London)', 'من (مثل: لندن)')}
               className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
               required
             />
           </div>
-          
+
           {/* Destination */}
           <div className="relative group">
-             <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
+            <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
               <MapPin className="text-slate-400 group-focus-within:text-brand-500" size={18} />
             </div>
-            <input 
+            <input
               name="destination"
-              type="text" 
-              placeholder={t('To (e.g. New York)', 'إلى (مثل: نيويورك)')} 
+              type="text"
+              placeholder={t('To (e.g. New York)', 'إلى (مثل: نيويورك)')}
               className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
               required
             />
           </div>
-          
+
           {/* Departure Date */}
           <div className="relative group">
             <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
               <Calendar className="text-slate-400 group-focus-within:text-brand-500" size={18} />
             </div>
-            <input 
+            <input
               name="date"
               type="text"
               onFocus={(e) => e.target.type = 'date'}
-              onBlur={(e) => {if(!e.target.value) e.target.type = 'text'}}
-              placeholder={t('Departure Date', 'تاريخ المغادرة')} 
+              onBlur={(e) => { if (!e.target.value) e.target.type = 'text' }}
+              placeholder={t('Departure Date', 'تاريخ المغادرة')}
               className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
               required
             />
@@ -524,12 +524,12 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
               <Calendar className="text-slate-400 group-focus-within:text-brand-500" size={18} />
             </div>
-            <input 
+            <input
               name="returnDate"
               type="text"
               onFocus={(e) => e.target.type = 'date'}
-              onBlur={(e) => {if(!e.target.value) e.target.type = 'text'}}
-              placeholder={t('Return Date', 'تاريخ العودة')} 
+              onBlur={(e) => { if (!e.target.value) e.target.type = 'text' }}
+              placeholder={t('Return Date', 'تاريخ العودة')}
               className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
             />
           </div>
@@ -539,7 +539,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
               <Users className="text-slate-400 group-focus-within:text-brand-500" size={18} />
             </div>
-            <select 
+            <select
               name="passengers"
               className="w-full pl-10 pr-8 rtl:pl-8 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white appearance-none cursor-pointer"
               defaultValue="1"
@@ -559,7 +559,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
               <Briefcase className="text-slate-400 group-focus-within:text-brand-500" size={18} />
             </div>
-            <select 
+            <select
               name="class"
               className="w-full pl-10 pr-8 rtl:pl-8 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white appearance-none cursor-pointer"
               defaultValue="economy"
@@ -573,8 +573,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             </div>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={searching}
             className="md:col-span-2 lg:col-span-2 bg-gradient-to-r from-brand-600 to-sky-600 hover:from-brand-700 hover:to-sky-700 text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-brand-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
@@ -607,59 +607,58 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
       {/* Results & Filtering */}
       <div className="mt-12 space-y-6">
-        
+
         {/* Filters & Sorting Toolbar */}
         <div className="relative z-20">
           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200/60 dark:border-slate-800/60 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3">
-               <button 
-                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                 disabled={results.length === 0}
-                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                   isFilterOpen || filterStops.length > 0 || filterAirlines.length > 0 
-                   ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 ring-1 ring-brand-200 dark:ring-brand-800' 
-                   : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed'
-                 }`}
-               >
-                 <Filter size={16} />
-                 {t('Filters', 'تصنيفات')}
-                 {(filterStops.length > 0 || filterAirlines.length > 0) && (
-                   <span className="bg-brand-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
-                     {filterStops.length + filterAirlines.length}
-                   </span>
-                 )}
-               </button>
+              <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                disabled={results.length === 0}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${isFilterOpen || filterStops.length > 0 || filterAirlines.length > 0
+                    ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 ring-1 ring-brand-200 dark:ring-brand-800'
+                    : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+              >
+                <Filter size={16} />
+                {t('Filters', 'تصنيفات')}
+                {(filterStops.length > 0 || filterAirlines.length > 0) && (
+                  <span className="bg-brand-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full">
+                    {filterStops.length + filterAirlines.length}
+                  </span>
+                )}
+              </button>
 
-               {/* Quick Sort Tabs (Desktop) */}
-               <div className="hidden md:flex items-center gap-2 border-l rtl:border-l-0 rtl:border-r border-slate-200 dark:border-slate-700 pl-4 rtl:pl-0 rtl:pr-4 ml-1 rtl:ml-0 rtl:mr-1">
-                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-2 rtl:mr-0 rtl:ml-2">{t('Sort by', 'ترتيب حسب')}</span>
-                 <select 
-                   value={sortBy} 
-                   onChange={(e) => setSortBy(e.target.value)}
-                   disabled={results.length === 0}
-                   className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-50"
-                 >
-                   <option value="price_asc">{t('Price: Low to High', 'السعر: من الأقل إلى الأعلى')}</option>
-                   <option value="price_desc">{t('Price: High to Low', 'السعر: من الأعلى إلى الأقل')}</option>
-                   <option value="duration">{t('Duration: Shortest', 'المدة: الأقصر')}</option>
-                   <option value="departure">{t('Departure: Earliest', 'المغادرة: الأقرب')}</option>
-                 </select>
-               </div>
+              {/* Quick Sort Tabs (Desktop) */}
+              <div className="hidden md:flex items-center gap-2 border-l rtl:border-l-0 rtl:border-r border-slate-200 dark:border-slate-700 pl-4 rtl:pl-0 rtl:pr-4 ml-1 rtl:ml-0 rtl:mr-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-2 rtl:mr-0 rtl:ml-2">{t('Sort by', 'ترتيب حسب')}</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  disabled={results.length === 0}
+                  className="bg-transparent text-sm font-medium text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-50"
+                >
+                  <option value="price_asc">{t('Price: Low to High', 'السعر: من الأقل إلى الأعلى')}</option>
+                  <option value="price_desc">{t('Price: High to Low', 'السعر: من الأعلى إلى الأقل')}</option>
+                  <option value="duration">{t('Duration: Shortest', 'المدة: الأقصر')}</option>
+                  <option value="departure">{t('Departure: Earliest', 'المغادرة: الأقرب')}</option>
+                </select>
+              </div>
             </div>
 
             {/* Mobile Sort (Visible only on small screens) */}
             <div className="md:hidden">
-               <select 
-                 value={sortBy} 
-                 onChange={(e) => setSortBy(e.target.value)}
-                 disabled={results.length === 0}
-                 className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm disabled:opacity-50 text-slate-700 dark:text-slate-200"
-               >
-                 <option value="price_asc">{t('Price: Low to High', 'السعر: من الأقل إلى الأعلى')}</option>
-                 <option value="price_desc">{t('Price: High to Low', 'السعر: من الأعلى إلى الأقل')}</option>
-                 <option value="duration">{t('Duration: Shortest', 'المدة: الأقصر')}</option>
-                 <option value="departure">{t('Departure: Earliest', 'المغادرة: الأقرب')}</option>
-               </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                disabled={results.length === 0}
+                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm disabled:opacity-50 text-slate-700 dark:text-slate-200"
+              >
+                <option value="price_asc">{t('Price: Low to High', 'السعر: من الأقل إلى الأعلى')}</option>
+                <option value="price_desc">{t('Price: High to Low', 'السعر: من الأعلى إلى الأقل')}</option>
+                <option value="duration">{t('Duration: Shortest', 'المدة: الأقصر')}</option>
+                <option value="departure">{t('Departure: Earliest', 'المغادرة: الأقرب')}</option>
+              </select>
             </div>
           </div>
 
@@ -668,66 +667,66 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             <>
               {/* Backdrop */}
               <div className="fixed inset-0 z-30" onClick={() => setIsFilterOpen(false)} />
-              
+
               {/* Dropdown */}
               <div className="absolute top-[calc(100%+8px)] left-0 w-full md:w-[360px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-800/60 p-6 z-40 animate-in fade-in zoom-in-95 duration-200 origin-top-left rtl:origin-top-right">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-                   <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                     <SlidersHorizontal size={18} className="text-brand-500" /> {t('Filter Flights', 'تصفية الرحلات')}
-                   </h3>
-                   {(filterStops.length > 0 || filterAirlines.length > 0) && (
-                     <button onClick={clearFilters} className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700 hover:underline font-semibold transition">
-                       {t('Reset all', 'إعادة تعيين')}
-                     </button>
-                   )}
+                  <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <SlidersHorizontal size={18} className="text-brand-500" /> {t('Filter Flights', 'تصفية الرحلات')}
+                  </h3>
+                  {(filterStops.length > 0 || filterAirlines.length > 0) && (
+                    <button onClick={clearFilters} className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700 hover:underline font-semibold transition">
+                      {t('Reset all', 'إعادة تعيين')}
+                    </button>
+                  )}
                 </div>
-                
+
                 {/* Stops Section */}
                 <div className="mb-6">
-                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 block">{t('Stops', 'التوقفات')}</label>
-                   <div className="space-y-2.5">
-                      {[0, 1, 2].map(stop => (
-                         <label key={stop} className="flex items-center gap-3 cursor-pointer group select-none">
-                            <div className={`w-5 h-5 rounded-[6px] border flex items-center justify-center transition-all duration-200 ${filterStops.includes(stop) ? 'bg-brand-600 border-brand-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 group-hover:border-brand-400'}`}>
-                               {filterStops.includes(stop) && <Check size={14} className="text-white stroke-[3px]" />}
-                            </div>
-                            <input type="checkbox" className="hidden" checked={filterStops.includes(stop)} onChange={() => toggleStopFilter(stop)} />
-                            <span className={`text-sm transition-colors ${filterStops.includes(stop) ? 'text-brand-900 dark:text-brand-100 font-semibold' : 'text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
-                              {stop === 0 ? t('Non-stop', 'بدون توقف') : stop === 1 ? t('1 Stop', 'توقف واحد') : t('2+ Stops', 'توقفان أو أكثر')}
-                            </span>
-                         </label>
-                      ))}
-                   </div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 block">{t('Stops', 'التوقفات')}</label>
+                  <div className="space-y-2.5">
+                    {[0, 1, 2].map(stop => (
+                      <label key={stop} className="flex items-center gap-3 cursor-pointer group select-none">
+                        <div className={`w-5 h-5 rounded-[6px] border flex items-center justify-center transition-all duration-200 ${filterStops.includes(stop) ? 'bg-brand-600 border-brand-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 group-hover:border-brand-400'}`}>
+                          {filterStops.includes(stop) && <Check size={14} className="text-white stroke-[3px]" />}
+                        </div>
+                        <input type="checkbox" className="hidden" checked={filterStops.includes(stop)} onChange={() => toggleStopFilter(stop)} />
+                        <span className={`text-sm transition-colors ${filterStops.includes(stop) ? 'text-brand-900 dark:text-brand-100 font-semibold' : 'text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
+                          {stop === 0 ? t('Non-stop', 'بدون توقف') : stop === 1 ? t('1 Stop', 'توقف واحد') : t('2+ Stops', 'توقفان أو أكثر')}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Airlines Section */}
                 <div>
-                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 block">{t('Airlines', 'شركات الطيران')}</label>
-                   <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
-                      {availableAirlines.length === 0 ? (
-                        <p className="text-sm text-slate-400 italic">No airlines available to filter</p>
-                      ) : (
-                        availableAirlines.map(airline => (
-                          <label key={airline} className="flex items-center gap-3 cursor-pointer group select-none">
-                             <div className={`w-5 h-5 rounded-[6px] border flex items-center justify-center transition-all duration-200 ${filterAirlines.includes(airline) ? 'bg-brand-600 border-brand-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 group-hover:border-brand-400'}`}>
-                                {filterAirlines.includes(airline) && <Check size={14} className="text-white stroke-[3px]" />}
-                             </div>
-                             <input type="checkbox" className="hidden" checked={filterAirlines.includes(airline)} onChange={() => toggleAirlineFilter(airline)} />
-                             <span className={`text-sm transition-colors ${filterAirlines.includes(airline) ? 'text-brand-900 dark:text-brand-100 font-semibold' : 'text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
-                               {airline}
-                             </span>
-                          </label>
-                        ))
-                      )}
-                   </div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 block">{t('Airlines', 'شركات الطيران')}</label>
+                  <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
+                    {availableAirlines.length === 0 ? (
+                      <p className="text-sm text-slate-400 italic">No airlines available to filter</p>
+                    ) : (
+                      availableAirlines.map(airline => (
+                        <label key={airline} className="flex items-center gap-3 cursor-pointer group select-none">
+                          <div className={`w-5 h-5 rounded-[6px] border flex items-center justify-center transition-all duration-200 ${filterAirlines.includes(airline) ? 'bg-brand-600 border-brand-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-600 group-hover:border-brand-400'}`}>
+                            {filterAirlines.includes(airline) && <Check size={14} className="text-white stroke-[3px]" />}
+                          </div>
+                          <input type="checkbox" className="hidden" checked={filterAirlines.includes(airline)} onChange={() => toggleAirlineFilter(airline)} />
+                          <span className={`text-sm transition-colors ${filterAirlines.includes(airline) ? 'text-brand-900 dark:text-brand-100 font-semibold' : 'text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>
+                            {airline}
+                          </span>
+                        </label>
+                      ))
+                    )}
+                  </div>
                 </div>
-                
+
                 {/* Footer Action */}
                 <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                   <button onClick={() => setIsFilterOpen(false)} className="bg-brand-600 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-brand-700 active:scale-95 transition-all shadow-md hover:shadow-lg">
-                      {t('View Results', 'عرض النتائج')}
-                   </button>
+                  <button onClick={() => setIsFilterOpen(false)} className="bg-brand-600 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-brand-700 active:scale-95 transition-all shadow-md hover:shadow-lg">
+                    {t('View Results', 'عرض النتائج')}
+                  </button>
                 </div>
               </div>
             </>
@@ -742,10 +741,9 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
           return (
             <div key={flight.id} className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden transition-all hover:shadow-3xl hover:-translate-y-1 duration-300 relative">
               {/* Compare Checkbox - Hidden when any detail section is expanded */}
-              <div 
-                className={`absolute bottom-4 left-4 z-10 transition-opacity duration-300 ease-in-out ${
-                 isAnySectionExpanded(flight.id) ? 'opacity-0 pointer-events-none' : 'opacity-100'
-                }`}
+              <div
+                className={`absolute bottom-4 left-4 z-10 transition-opacity duration-300 ease-in-out ${isAnySectionExpanded(flight.id) ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                  }`}
               >
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input
@@ -761,11 +759,11 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                   <span className="text-xs font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-200">Compare</span>
                 </label>
               </div>
-              
+
               {/* Main Card Content */}
               <div className="p-5 md:p-6">
                 <div className="flex flex-col lg:flex-row gap-6">
-                  
+
                   {/* Left: Flight Information */}
                   <div className="flex-1">
                     {/* Airline Info */}
@@ -790,7 +788,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         <div className="text-3xl font-bold text-[#1E293B] dark:text-white tracking-tight">{formatTime(flight.departureTime)}</div>
                         <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-0.5">{flight.origin}</div>
                       </div>
-                      
+
                       {/* Duration Visualization */}
                       <div className="flex-1 flex flex-col items-center px-2 md:px-4 min-w-[140px]">
                         <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 whitespace-nowrap">{flight.duration}</div>
@@ -800,7 +798,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                             {flight.stops === 0 && (
                               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                                 <svg className="w-5 h-5 text-slate-400 dark:text-slate-500" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.699-3.181A1 1 0 0118 4.323V16a1 1 0 01-1 1H3a1 1 0 01-1-1V4.323a1 1 0 011.346-.619l1.699 3.181L9 4.323V3a1 1 0 011-1zm-1 8a1 1 0 012 0v4a1 1 0 01-2 0v-4z"/>
+                                  <path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.699-3.181A1 1 0 0118 4.323V16a1 1 0 01-1 1H3a1 1 0 01-1-1V4.323a1 1 0 011.346-.619l1.699 3.181L9 4.323V3a1 1 0 011-1zm-1 8a1 1 0 012 0v4a1 1 0 01-2 0v-4z" />
                                 </svg>
                               </div>
                             )}
@@ -833,13 +831,12 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
                     {/* Action Buttons */}
                     <div className="flex flex-col gap-2">
-                      <button 
+                      <button
                         onClick={() => handleBook(flight)}
-                        className={`w-full py-2.5 px-4 rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg active:scale-95 transform duration-150 flex items-center justify-center gap-2 ${
-                          isLoggedIn 
-                          ? 'bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white' 
-                          : 'bg-cyan-400 hover:bg-cyan-500 text-white font-bold'
-                        }`}
+                        className={`w-full py-2.5 px-4 rounded-xl font-semibold text-sm transition-all shadow-md hover:shadow-lg active:scale-95 transform duration-150 flex items-center justify-center gap-2 ${isLoggedIn
+                            ? 'bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white'
+                            : 'bg-cyan-400 hover:bg-cyan-500 text-white font-bold'
+                          }`}
                       >
                         {!isLoggedIn && <Lock size={15} strokeWidth={3} />}
                         {isLoggedIn ? t('Select', 'اختر') : t('Login to Book', 'سجل للدخول للحجز')}
@@ -880,7 +877,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               </div>
 
               {/* Expandable Sections */}
-              
+
               {/* AI Analysis Panel */}
               {expandedAI[flight.id] && (pred || risk) && (
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
@@ -901,19 +898,19 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                   pred.classification === 'GREAT_DEAL'
                                     ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
                                     : pred.classification === 'GOOD_PRICE'
-                                    ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                                    : pred.classification === 'FAIR'
-                                    ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                                    : pred.classification === 'ABOVE_AVERAGE'
-                                    ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300'
-                                    : pred.classification === 'EXPENSIVE'
-                                    ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-                                    : pred.priceCategory === 'cheap'
-                                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                                    : pred.priceCategory === 'expensive'
-                                    ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
-                                }`}
+                                      ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                                      : pred.classification === 'FAIR'
+                                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                        : pred.classification === 'ABOVE_AVERAGE'
+                                          ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300'
+                                          : pred.classification === 'EXPENSIVE'
+                                            ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                                            : pred.priceCategory === 'cheap'
+                                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+                                              : pred.priceCategory === 'expensive'
+                                                ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                                  }`}
                               >
                                 {pred.classification || pred.priceCategory}
                               </span>
@@ -941,7 +938,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         </div>
                       </div>
                     )}
-                    
+
                     {risk && (
                       <div className="p-4 rounded-xl border-2 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
                         <div className="flex items-start gap-3">
@@ -953,11 +950,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                             <div className="grid grid-cols-2 gap-2 text-[11px]">
                               <div>
                                 <div className="font-semibold text-slate-600 dark:text-slate-300">Weather risk</div>
-                                <div className={`capitalize font-medium ${
-                                  risk.weatherRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
-                                  risk.weatherRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
-                                  'text-red-600 dark:text-red-400'
-                                }`}>
+                                <div className={`capitalize font-medium ${risk.weatherRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
+                                    risk.weatherRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
+                                      'text-red-600 dark:text-red-400'
+                                  }`}>
                                   {risk.weatherRisk === 'low' && '✓ '}
                                   {risk.weatherRisk === 'medium' && '⚠ '}
                                   {risk.weatherRisk === 'high' && '✗ '}
@@ -966,11 +962,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               </div>
                               <div>
                                 <div className="font-semibold text-slate-600 dark:text-slate-300">Destination safety</div>
-                                <div className={`capitalize font-medium ${
-                                  risk.safetyRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
-                                  risk.safetyRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
-                                  'text-red-600 dark:text-red-400'
-                                }`}>
+                                <div className={`capitalize font-medium ${risk.safetyRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
+                                    risk.safetyRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
+                                      'text-red-600 dark:text-red-400'
+                                  }`}>
                                   {risk.safetyRisk === 'low' && '✓ '}
                                   {risk.safetyRisk === 'medium' && '⚠ '}
                                   {risk.safetyRisk === 'high' && '✗ '}
@@ -979,11 +974,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               </div>
                               <div>
                                 <div className="font-semibold text-slate-600 dark:text-slate-300">Overall risk</div>
-                                <div className={`capitalize font-medium ${
-                                  risk.overallRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
-                                  risk.overallRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
-                                  'text-red-600 dark:text-red-400'
-                                }`}>
+                                <div className={`capitalize font-medium ${risk.overallRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
+                                    risk.overallRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
+                                      'text-red-600 dark:text-red-400'
+                                  }`}>
                                   {risk.overallRisk === 'low' && '✓ '}
                                   {risk.overallRisk === 'medium' && '⚠ '}
                                   {risk.overallRisk === 'high' && '✗ '}
@@ -992,11 +986,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               </div>
                               <div>
                                 <div className="font-semibold text-slate-600 dark:text-slate-300">Safety score</div>
-                                <div className={`font-bold ${
-                                  risk.safetyScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
-                                  risk.safetyScore >= 60 ? 'text-amber-600 dark:text-amber-400' :
-                                  'text-red-600 dark:text-red-400'
-                                }`}>
+                                <div className={`font-bold ${risk.safetyScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
+                                    risk.safetyScore >= 60 ? 'text-amber-600 dark:text-amber-400' :
+                                      'text-red-600 dark:text-red-400'
+                                  }`}>
                                   {risk.safetyScore}/100
                                 </div>
                               </div>
@@ -1024,21 +1017,20 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         </div>
                         <div className="flex-1 space-y-2">
                           <h5 className="font-bold text-slate-900 dark:text-white text-sm">ML Price Prediction</h5>
-                          
+
                           {/* Predicted Price */}
                           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                             ${mlPredictions[flight.id].predictedPrice}
                           </div>
-                          
+
                           {/* Trend & Confidence */}
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
                               <div className="font-semibold text-slate-600 dark:text-slate-300">Price Trend</div>
-                              <div className={`font-bold capitalize flex items-center gap-1 ${
-                                mlPredictions[flight.id].trend === 'increase' ? 'text-red-600' :
-                                mlPredictions[flight.id].trend === 'decrease' ? 'text-emerald-600' :
-                                'text-amber-600'
-                              }`}>
+                              <div className={`font-bold capitalize flex items-center gap-1 ${mlPredictions[flight.id].trend === 'increase' ? 'text-red-600' :
+                                  mlPredictions[flight.id].trend === 'decrease' ? 'text-emerald-600' :
+                                    'text-amber-600'
+                                }`}>
                                 {mlPredictions[flight.id].trend === 'increase' && '↑'}
                                 {mlPredictions[flight.id].trend === 'decrease' && '↓'}
                                 {mlPredictions[flight.id].trend === 'stable' && '→'}
@@ -1052,7 +1044,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               </div>
                             </div>
                           </div>
-                          
+
                           {/* Recommendation */}
                           <p className="text-xs text-slate-600 dark:text-slate-400">
                             {mlPredictions[flight.id].recommendation}
@@ -1101,29 +1093,29 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                   <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <p className="text-xs text-slate-500 dark:text-slate-400">Aircraft: <span className="font-semibold text-slate-700 dark:text-slate-300">{flight.aircraft || 'Boeing 787-9 Dreamliner'}</span></p>
                   </div>
-                  
+
                   {/* Flight Path Timeline - Compact Version */}
                   <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
                     <h5 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Flight Timeline</h5>
-                    
+
                     {/* Compact Vertical Timeline */}
                     <div className="relative max-w-md mx-auto">
                       {flight.segments && flight.segments.length > 0 ? (
                         flight.segments.map((segment, idx) => {
-                         const isFirst = idx === 0;
-                         const isLast = idx === flight.segments.length - 1;
-                          
-                         const formatSafeTime= (isoString: string) => {
+                          const isFirst = idx === 0;
+                          const isLast = idx === flight.segments.length - 1;
+
+                          const formatSafeTime = (isoString: string) => {
                             try {
                               if (!isoString) return '—';
-                             const date = new Date(isoString);
+                              const date = new Date(isoString);
                               if (isNaN(date.getTime())) return '—';
                               return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             } catch {
                               return '—';
                             }
                           };
-                          
+
                           return (
                             <React.Fragment key={idx}>
                               <div className="relative">
@@ -1131,15 +1123,14 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                 {!isLast && (
                                   <div className="absolute left-[9px] top-6 bottom-[-16px] w-px bg-slate-300 dark:bg-slate-600"></div>
                                 )}
-                                
+
                                 {/* Departure Point */}
                                 <div className="flex items-start gap-3 mb-6 last:mb-0">
-                                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${
-                                   isFirst ? 'border-brand-500 bg-white dark:bg-slate-900' : 'border-slate-400 bg-white dark:bg-slate-900'
-                                  }`}>
+                                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${isFirst ? 'border-brand-500 bg-white dark:bg-slate-900' : 'border-slate-400 bg-white dark:bg-slate-900'
+                                    }`}>
                                     {isFirst && <div className="w-1 h-1 rounded-full bg-brand-500"></div>}
                                   </div>
-                                  
+
                                   <div className="flex-1 -mt-0.5">
                                     <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">
                                       {formatSafeTime(segment.departure.at)}
@@ -1149,13 +1140,12 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                     </div>
                                   </div>
                                 </div>
-                                
+
                                 {/* Arrival Point */}
                                 <div className="flex items-start gap-3">
-                                  <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 z-10 ${
-                                   isLast ? 'bg-emerald-500' : 'bg-slate-400'
-                                  }`}></div>
-                                  
+                                  <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 z-10 ${isLast ? 'bg-emerald-500' : 'bg-slate-400'
+                                    }`}></div>
+
                                   <div className="flex-1 -mt-0.5">
                                     <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">
                                       {formatSafeTime(segment.arrival.at)}
@@ -1166,18 +1156,18 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                   </div>
                                 </div>
                               </div>
-                              
+
                               {/* Layover Badge - Compact */}
                               {!isLast && (
                                 <div className="ml-[22px] mt-2 mb-6">
                                   {(() => {
                                     try {
-                                     const arrivalTime= new Date(segment.arrival.at);
-                                     const nextDepartureTime = new Date(flight.segments[idx +1].departure.at);
-                                     const layoverMinutes = Math.floor((nextDepartureTime.getTime() - arrivalTime.getTime()) / (1000 * 60));
-                                     const layoverHours = Math.floor(layoverMinutes/ 60);
-                                     const layoverMins = layoverMinutes % 60;
-                                      
+                                      const arrivalTime = new Date(segment.arrival.at);
+                                      const nextDepartureTime = new Date(flight.segments[idx + 1].departure.at);
+                                      const layoverMinutes = Math.floor((nextDepartureTime.getTime() - arrivalTime.getTime()) / (1000 * 60));
+                                      const layoverHours = Math.floor(layoverMinutes / 60);
+                                      const layoverMins = layoverMinutes % 60;
+
                                       return (
                                         <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-[10px] font-medium text-amber-800 dark:text-amber-300">
                                           Layover: {getCityName(segment.arrival.iataCode)} ({layoverHours}h {layoverMins}m)
@@ -1208,7 +1198,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-1">{getCityName(flight.origin)}</div>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-start gap-3">
                             <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shrink-0"></div>
                             <div className="flex-1 -mt-0.5">
@@ -1225,21 +1215,21 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             </div>
           );
         })}
- 
-        
-        
+
+
+
         {/* Empty State */}
         {filteredAndSortedResults.length === 0 && !searching && (
-           <div className="mt-12 w-full h-[400px] rounded-3xl border-2 border-brand-100 dark:border-brand-900 bg-brand-50/50 dark:bg-brand-950/20 flex flex-col items-center justify-center text-center p-8 transition-all hover:bg-brand-50/70 dark:hover:bg-brand-950/30">
-             <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 mb-6 animate-pulse-slow">
-                <MapPin size={40} className="text-slate-300 dark:text-slate-600" />
-             </div>
-             {results.length > 0 ? (
-                <p className="text-slate-400 dark:text-slate-500 text-lg font-medium">{t('No flights match your filters.', 'لا توجد رحلات تطابق تصفيتك.')}</p>
-             ) : (
-                <p className="text-slate-400 dark:text-slate-500 text-lg font-medium">{t('Enter your destination above to start exploring.', 'أدخل وجهتك أعلاه لبدء الاستكشاف.')}</p>
-             )}
-           </div>
+          <div className="mt-12 w-full h-[400px] rounded-3xl border-2 border-brand-100 dark:border-brand-900 bg-brand-50/50 dark:bg-brand-950/20 flex flex-col items-center justify-center text-center p-8 transition-all hover:bg-brand-50/70 dark:hover:bg-brand-950/30">
+            <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700 mb-6 animate-pulse-slow">
+              <MapPin size={40} className="text-slate-300 dark:text-slate-600" />
+            </div>
+            {results.length > 0 ? (
+              <p className="text-slate-400 dark:text-slate-500 text-lg font-medium">{t('No flights match your filters.', 'لا توجد رحلات تطابق تصفيتك.')}</p>
+            ) : (
+              <p className="text-slate-400 dark:text-slate-500 text-lg font-medium">{t('Enter your destination above to start exploring.', 'أدخل وجهتك أعلاه لبدء الاستكشاف.')}</p>
+            )}
+          </div>
         )}
       </div>
 
@@ -1253,137 +1243,137 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-           {/* Card 1 */}
-           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-              <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/30 rounded-2xl flex items-center justify-center text-brand-500 mb-6 shadow-sm">
-                 <Sparkles size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('AI-Powered Predictions', 'توقعات مدعومة بالذكاء الاصطناعي')}</h3>
-              <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                {language === 'ar' ? 'خوارزمياتنا تحلل ملايين الرحلات للتنبؤ بأفضل وقت للحجز ووجهتك التالية.' : 'Our algorithms analyze millions of flights to predict the best time to book and where to go next.'}
-              </p>
-           </div>
+          {/* Card 1 */}
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/30 rounded-2xl flex items-center justify-center text-brand-500 mb-6 shadow-sm">
+              <Sparkles size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('AI-Powered Predictions', 'توقعات مدعومة بالذكاء الاصطناعي')}</h3>
+            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+              {language === 'ar' ? 'خوارزمياتنا تحلل ملايين الرحلات للتنبؤ بأفضل وقت للحجز ووجهتك التالية.' : 'Our algorithms analyze millions of flights to predict the best time to book and where to go next.'}
+            </p>
+          </div>
 
-           {/* Card 2 */}
-           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-              <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/30 rounded-2xl flex items-center justify-center text-brand-500 mb-6 shadow-sm">
-                 <Map size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Smart Itineraries', 'مسارات ذكية')}</h3>
-              <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                {language === 'ar' ? 'احصل على خطط سفر مخصصة يتم إنشاؤها في ثوانٍ بناءً على اهتماماتك وميزانيتك.' : 'Get personalized travel plans generated in seconds based on your interests and budget.'}
-              </p>
-           </div>
+          {/* Card 2 */}
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/30 rounded-2xl flex items-center justify-center text-brand-500 mb-6 shadow-sm">
+              <Map size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Smart Itineraries', 'مسارات ذكية')}</h3>
+            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+              {language === 'ar' ? 'احصل على خطط سفر مخصصة يتم إنشاؤها في ثوانٍ بناءً على اهتماماتك وميزانيتك.' : 'Get personalized travel plans generated in seconds based on your interests and budget.'}
+            </p>
+          </div>
 
-           {/* Card 3 */}
-           <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-              <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 shadow-sm">
-                 <ShieldCheck size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Secure Booking', 'حجز آمن')}</h3>
-              <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-                {language === 'ar' ? 'أمان بمستوى بنكي لمدفوعاتك وبياناتك الشخصية. احجز براحة بال تامة.' : 'Bank-level security for your payments and personal data. Book with complete peace of mind.'}
-              </p>
-           </div>
+          {/* Card 3 */}
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 shadow-sm">
+              <ShieldCheck size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Secure Booking', 'حجز آمن')}</h3>
+            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+              {language === 'ar' ? 'أمان بمستوى بنكي لمدفوعاتك وبياناتك الشخصية. احجز براحة بال تامة.' : 'Bank-level security for your payments and personal data. Book with complete peace of mind.'}
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Booking Modal */}
       {selectedFlight && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-300">
-           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 shrink-0">
-                 <h3 className="font-bold text-lg text-slate-800 dark:text-white">
-                    {bookingStatus === 'confirmed' ? t('Booking Confirmed', 'تم تأكيد الحجز') : t('Complete Booking', 'إكمال الحجز')}
-                 </h3>
-                 <button onClick={closeBookingModal} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition">
-                    <X size={20} className="text-slate-500 dark:text-slate-400" />
-                 </button>
-              </div>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 shrink-0">
+              <h3 className="font-bold text-lg text-slate-800 dark:text-white">
+                {bookingStatus === 'confirmed' ? t('Booking Confirmed', 'تم تأكيد الحجز') : t('Complete Booking', 'إكمال الحجز')}
+              </h3>
+              <button onClick={closeBookingModal} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition">
+                <X size={20} className="text-slate-500 dark:text-slate-400" />
+              </button>
+            </div>
 
-              {/* Content */}
-              <div className="p-6 overflow-y-auto">
-                 {bookingStatus === 'processing' ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-4">
-                       <Loader2 size={48} className="text-brand-600 animate-spin" />
-                       <p className="text-slate-500 dark:text-slate-400 font-medium">{t('Processing your payment...', 'جارٍ معالجة الدفع...')}</p>
+            {/* Content */}
+            <div className="p-6 overflow-y-auto">
+              {bookingStatus === 'processing' ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <Loader2 size={48} className="text-brand-600 animate-spin" />
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">{t('Processing your payment...', 'جارٍ معالجة الدفع...')}</p>
+                </div>
+              ) : bookingStatus === 'confirmed' ? (
+                <div className="text-center py-8">
+                  <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle size={40} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t("You're All Set!", 'أنت جاهز تماماً!')}</h2>
+                  <p className="text-slate-500 dark:text-slate-400 mb-8">
+                    Your flight to {selectedFlight.destination} has been booked successfully. <br />
+                    Booking Reference: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">SKY-{Math.random().toString(36).substr(2, 6).toUpperCase()}</span>
+                  </p>
+                  <button onClick={closeBookingModal} className="w-full py-3.5 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition shadow-lg">
+                    {t('Download Ticket', 'تنزيل التذكرة')}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Flight Summary Card */}
+                  <div className="bg-gradient-to-br from-slate-50 to-sky-50/30 dark:from-slate-800 dark:to-slate-800/50 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4 border-b border-slate-200 dark:border-slate-700 pb-4">
+                      {/* Airline Logo Component in Modal */}
+                      <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-600 overflow-hidden shrink-0">
+                        <AirlineLogo airline={selectedFlight.airline} carrierCode={selectedFlight.carrierCode} className="w-full h-full" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white">{selectedFlight.airline}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{selectedFlight.flightNumber} • Economy</div>
+                      </div>
                     </div>
-                 ) : bookingStatus === 'confirmed' ? (
-                    <div className="text-center py-8">
-                       <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                          <CheckCircle size={40} />
-                       </div>
-                       <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t("You're All Set!", 'أنت جاهز تماماً!')}</h2>
-                       <p className="text-slate-500 dark:text-slate-400 mb-8">
-                          Your flight to {selectedFlight.destination} has been booked successfully. <br/>
-                          Booking Reference: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">SKY-{Math.random().toString(36).substr(2, 6).toUpperCase()}</span>
-                       </p>
-                       <button onClick={closeBookingModal} className="w-full py-3.5 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition shadow-lg">
-                          {t('Download Ticket', 'تنزيل التذكرة')}
-                       </button>
-                    </div>
-                 ) : (
-                    <div className="space-y-6">
-                       {/* Flight Summary Card */}
-                       <div className="bg-gradient-to-br from-slate-50 to-sky-50/30 dark:from-slate-800 dark:to-slate-800/50 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
-                          <div className="flex items-center gap-3 mb-4 border-b border-slate-200 dark:border-slate-700 pb-4">
-                             {/* Airline Logo Component in Modal */}
-                             <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-600 overflow-hidden shrink-0">
-                                <AirlineLogo airline={selectedFlight.airline} carrierCode={selectedFlight.carrierCode} className="w-full h-full" />
-                             </div>
-                             <div>
-                                <div className="font-bold text-slate-900 dark:text-white">{selectedFlight.airline}</div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400">{selectedFlight.flightNumber} • Economy</div>
-                             </div>
-                          </div>
-                          
-                          <div className="flex justify-between items-center mb-4">
-                             <div>
-                                <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatTime(selectedFlight.departureTime)}</div>
-                                <div className="text-sm text-slate-500 dark:text-slate-400">{selectedFlight.origin}</div>
-                             </div>
-                             <div className="flex flex-col items-center px-4">
-                                <span className="text-xs text-slate-400">{selectedFlight.duration}</span>
-                                <div className="w-24 h-px bg-slate-300 dark:bg-slate-600 my-1 relative">
-                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
-                                </div>
-                             </div>
-                             <div className="text-right text-end">
-                                <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatTime(selectedFlight.arrivalTime)}</div>
-                                <div className="text-sm text-slate-500 dark:text-slate-400">{selectedFlight.destination}</div>
-                             </div>
-                          </div>
-                       </div>
 
-                       {/* Payment Summary */}
-                       <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
-                          <h4 className="font-bold text-slate-800 dark:text-white mb-3">{t('Payment Details', 'تفاصيل الدفع')}</h4>
-                          <div className="space-y-3 text-sm">
-                             <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                <span>{t('Flight Fare', 'سعر الرحلة')}</span>
-                                <span>${selectedFlight.price}</span>
-                             </div>
-                             <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                                <span>{t('Taxes & Fees', 'الضرائب والرسوم')}</span>
-                                <span>{t('Included', 'مشمولة')}</span>
-                             </div>
-                             <div className="flex justify-between font-bold text-lg text-slate-900 dark:text-white border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
-                                <span>{t('Total', 'الإجمالي')}</span>
-                                <span>${selectedFlight.price}</span>
-                             </div>
-                          </div>
-                       </div>
-                       
-                       {/* Action */}
-                       <button onClick={processBooking} className="w-full py-4 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-white dark:to-slate-100 text-white dark:text-slate-900 font-bold rounded-xl hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-100 dark:hover:to-slate-200 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group active:scale-[0.98] transform duration-150">
-                          <CreditCard size={20} className="group-hover:scale-110 transition-transform" />
-                          {t('Confirm & Pay', 'تأكيد ودفع')} ${selectedFlight.price}
-                       </button>
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatTime(selectedFlight.departureTime)}</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">{selectedFlight.origin}</div>
+                      </div>
+                      <div className="flex flex-col items-center px-4">
+                        <span className="text-xs text-slate-400">{selectedFlight.duration}</span>
+                        <div className="w-24 h-px bg-slate-300 dark:bg-slate-600 my-1 relative">
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+                        </div>
+                      </div>
+                      <div className="text-right text-end">
+                        <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatTime(selectedFlight.arrivalTime)}</div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400">{selectedFlight.destination}</div>
+                      </div>
                     </div>
-                 )}
-              </div>
-           </div>
+                  </div>
+
+                  {/* Payment Summary */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
+                    <h4 className="font-bold text-slate-800 dark:text-white mb-3">{t('Payment Details', 'تفاصيل الدفع')}</h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>{t('Flight Fare', 'سعر الرحلة')}</span>
+                        <span>${selectedFlight.price}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>{t('Taxes & Fees', 'الضرائب والرسوم')}</span>
+                        <span>{t('Included', 'مشمولة')}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg text-slate-900 dark:text-white border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
+                        <span>{t('Total', 'الإجمالي')}</span>
+                        <span>${selectedFlight.price}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action */}
+                  <button onClick={processBooking} className="w-full py-4 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-white dark:to-slate-100 text-white dark:text-slate-900 font-bold rounded-xl hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-100 dark:hover:to-slate-200 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group active:scale-[0.98] transform duration-150">
+                    <CreditCard size={20} className="group-hover:scale-110 transition-transform" />
+                    {t('Confirm & Pay', 'تأكيد ودفع')} ${selectedFlight.price}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1502,11 +1492,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         return (
                           <td key={flightId} className="py-4 px-4 text-center">
                             {risk ? (
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                                risk.riskLevel === 'Low' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                                risk.riskLevel === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
-                                'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                              }`}>
+                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${risk.riskLevel === 'Low' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                                  risk.riskLevel === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                                    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                }`}>
                                 {risk.riskLevel}
                               </span>
                             ) : (

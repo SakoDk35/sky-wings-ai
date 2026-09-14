@@ -30,7 +30,7 @@ const extractAirportCode = (location: string): string => {
   if (match) {
     return match[1];
   }
-  
+
   // Fallback: try to find any 3-letter uppercase code
   const fallbackMatch = location.match(/[A-Z]{3}/);
   return fallbackMatch ? fallbackMatch[0] : 'XXX';
@@ -47,13 +47,13 @@ export const getMLPricePrediction = async (flight: Flight): Promise<MLPrediction
     // Extract airport codes
     const originCode = extractAirportCode(flight.origin);
     const destinationCode = extractAirportCode(flight.destination);
-    
+
     // Construct route (e.g., "AMS-IST")
     const route = `${originCode}-${destinationCode}`;
-    
+
     // Extract departure date (YYYY-MM-DD format)
     const departureDate = flight.departureTime.split('T')[0];
-    
+
     // Prepare request payload (days_before_departure now calculated server-side)
     const payload = {
       route: route,
@@ -62,7 +62,7 @@ export const getMLPricePrediction = async (flight: Flight): Promise<MLPrediction
       current_price: flight.price
       // days_before_departure automatically calculated by server based on departure_date
     };
-    
+
     // Call ML prediction API
     const response = await fetch('http://localhost:5000/predict-flight-price', {
       method: 'POST',
@@ -71,7 +71,7 @@ export const getMLPricePrediction = async (flight: Flight): Promise<MLPrediction
       },
       body: JSON.stringify(payload),
     });
-    
+
     if (!response.ok) {
       if (response.status === 404 || response.status === 500) {
         console.warn('ML prediction service returned error:', response.status);
@@ -79,9 +79,9 @@ export const getMLPricePrediction = async (flight: Flight): Promise<MLPrediction
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data: MLPredictionResponse = await response.json();
-    
+
     // Map response to our format
     const prediction: MLPrediction = {
       predictedPrice: data.predicted_price,
@@ -90,10 +90,10 @@ export const getMLPricePrediction = async (flight: Flight): Promise<MLPrediction
       priceChangePercent: data.price_change_percent,
       recommendation: data.recommendation
     };
-    
+
     console.log('✓ ML price prediction successful:', prediction);
     return prediction;
-    
+
   } catch (error: any) {
     // Graceful failure - ML service might not be running
     console.warn('ML prediction service unavailable:', error?.message || error);

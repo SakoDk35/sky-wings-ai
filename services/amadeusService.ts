@@ -189,21 +189,21 @@ const generateAmenities = (
     const minutes = match[2] ? parseInt(match[2], 10) : 0;
     return hours * 60 + minutes;
   };
-  
+
   const mins = typeof durationMinutes === 'string' ? parseDuration(durationMinutes) : durationMinutes;
   const isLongHaul = mins > 360; // > 6 hours
   const isPremium = price > 800;
-  
+
   // Airline-specific amenity patterns
   const premiumAirlines = ['Emirates', 'Qatar', 'Etihad', 'Singapore', 'Lufthansa', 'British'];
   const budgetAirlines = ['Ryanair', 'Wizz', 'easyJet', 'Spirit', 'Frontier'];
-  
+
   const isPremiumAirline = premiumAirlines.some(a => airline.includes(a));
   const isBudgetAirline = budgetAirlines.some(a => airline.includes(a));
-  
+
   // Generate amenities
   const amenities: any = {};
-  
+
   // Baggage
   if (isBudgetAirline) {
     amenities.baggage = 'Carry-on only (fees for checked)';
@@ -212,7 +212,7 @@ const generateAmenities = (
   } else {
     amenities.baggage = '23kg Checked + 7kg Cabin';
   }
-  
+
   // Meal
   if (isBudgetAirline) {
     amenities.meal = 'Buy on board';
@@ -223,7 +223,7 @@ const generateAmenities = (
   } else {
     amenities.meal = 'Snacks & beverages';
   }
-  
+
   // Wi-Fi
   if (isBudgetAirline) {
     amenities.wifi = false;
@@ -232,7 +232,7 @@ const generateAmenities = (
   } else {
     amenities.wifi = Math.random() > 0.5; // 50% chance
   }
-  
+
   // Power outlets
   if (isBudgetAirline) {
     amenities.power = false;
@@ -241,7 +241,7 @@ const generateAmenities = (
   } else {
     amenities.power = isLongHaul || Math.random() > 0.6;
   }
-  
+
   // Entertainment
   if (isBudgetAirline) {
     amenities.entertainment = false;
@@ -250,7 +250,7 @@ const generateAmenities = (
   } else {
     amenities.entertainment = mins > 180;
   }
-  
+
   return amenities;
 };
 
@@ -295,11 +295,11 @@ const mapToFlightInterface = (
   if (returnItinerary) {
     returnDuration = parseDuration(returnItinerary.duration);
   }
-  
+
   // Get aircraft model from first segment
   const aircraftCode = firstSegment.aircraft?.code;
   const aircraftName = dictionaries.aircraft?.[aircraftCode] || `${firstSegment.carrierCode} Aircraft`;
-  
+
   // Generate dynamic amenities based on flight characteristics
   const amenities = generateAmenities(
     airlineName,
@@ -310,22 +310,22 @@ const mapToFlightInterface = (
   // Map segments for detailed flight path display
   const segments = outboundSegments.map(segment => ({
     departure: {
-     iataCode: segment.departure.iataCode,
+      iataCode: segment.departure.iataCode,
       at: segment.departure.at,
       terminal: segment.departure.terminal,
     },
     arrival: {
-     iataCode: segment.arrival.iataCode,
+      iataCode: segment.arrival.iataCode,
       at: segment.arrival.at,
       terminal: segment.arrival.terminal,
     },
     carrierCode: segment.carrierCode,
     flightNumber: segment.number,
     aircraft: dictionaries.aircraft?.[segment.aircraft?.code],
-  duration: parseDuration(segment.duration),
+    duration: parseDuration(segment.duration),
   }));
 
- return {
+  return {
     id: `ama-${offer.id}`,
     airline: airlineName,
     flightNumber: flightNumbers,
@@ -334,7 +334,7 @@ const mapToFlightInterface = (
     departureTime: firstSegment.departure.at,
     arrivalTime: lastSegment.arrival.at,
     price: parseFloat(offer.price.total),
-  duration: parseDuration(outboundItinerary.duration),
+    duration: parseDuration(outboundItinerary.duration),
     stops,
     stopDetails,
     returnDuration,
@@ -409,17 +409,17 @@ const logSearchResult = (
  */
 const deduplicateFlights = (flights: Flight[]): Flight[] => {
   const flightMap = new Map<string, Flight>();
-  
+
   flights.forEach(flight => {
     // Create a unique key based on airline and price
     const key = `${flight.airline}|${flight.price}`;
-    
+
     // Only keep the first occurrence
     if (!flightMap.has(key)) {
       flightMap.set(key, flight);
     }
   });
-  
+
   return Array.from(flightMap.values());
 };
 
@@ -504,12 +504,12 @@ export const searchFlightOffers = async (
     );
 
     console.log(`Amadeus returned ${flights.length} flights before deduplication`);
-    
+
     // Step 3: Remove duplicate flights (same airline, flight number, departure time - keep lowest price)
     const deduplicatedFlights = deduplicateFlights(flights);
-    
+
     console.log(`After deduplication: ${deduplicatedFlights.length} unique flights`);
-    
+
     logSearchResult(originCode, destinationCode, departureDate, deduplicatedFlights.length, returnDate, adults, amadeusClass);
     return deduplicatedFlights;
 
