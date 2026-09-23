@@ -1,45 +1,33 @@
 import { Flight } from '../types';
 import { getIATACode } from './iataCodes';
 
-// The browser may call only SkyWings' own server. Provider credentials and
-// provider API calls must remain server-side.
-const BACKEND_API_URL = 'http://localhost:3001';
+interface ApiErrorPayload {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
 
-export const LIVE_INVENTORY_UNAVAILABLE_MESSAGE =
-  'Verified live flight inventory is temporarily unavailable while the secure server integration is completed. No simulated flights are shown.';
+interface FlightSearchResponse {
+  data?: Flight[];
+  meta?: {
+    count?: number;
+    provider?: string;
+  };
+}
 
-const validateSearchDates = async (
-  originCode: string,
-  destinationCode: string,
-  departureDate: string,
-  returnDate?: string,
-  adults: number = 1,
-  travelClass?: string
-): Promise<void> => {
-  const params = new URLSearchParams({
-    origin: originCode,
-    destination: destinationCode,
-    departureDate,
-    adults: adults.toString(),
-  });
+export class FlightSearchError extends Error {
+  code: string;
+  status: number;
 
-  if (returnDate) params.append('returnDate', returnDate);
-  if (travelClass) params.append('travelClass', travelClass);
-
-  const response = await fetch(`${BACKEND_API_URL}/api/search-flights?${params.toString()}`);
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Validation failed' }));
-    throw new Error(errorData.error || 'Validation failed');
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.name = 'FlightSearchError';
+    this.code = code;
+    this.status = status;
   }
-};
+}
 
-/**
- * Phase 1 containment boundary.
- *
- * Search input is still validated by the SkyWings server, but the browser no
- * longer authenticates with or calls Amadeus. Phase 2 can replace the explicit
- * unavailable error below with a server endpoint that owns the provider call.
- */
 export const searchFlightOffers = async (
   origin: string,
   destination: string,
@@ -50,7 +38,6 @@ export const searchFlightOffers = async (
 ): Promise<Flight[]> => {
   const originCode = getIATACode(origin);
   const destinationCode = getIATACode(destination);
-
   const classMap: Record<string, string> = {
     economy: 'ECONOMY',
     'premium economy': 'PREMIUM_ECONOMY',
@@ -58,17 +45,47 @@ export const searchFlightOffers = async (
     first: 'FIRST',
   };
   const normalizedClass = travelClass
-    ? classMap[travelClass.toLowerCase()] || 'ECONOMY'
-    : undefined;
+    ? classMap[travelClass.toLowerCase()] || travelClass.toUpperCase()
+    : 'ECONOMY';
 
-  await validateSearchDates(
-    originCode,
-    destinationCode,
+  const params = new URLSearchParams({
+    origin: originCode,
+    destination: destinationCode,
     departureDate,
-    returnDate,
-    adults,
-    normalizedClass
-  );
+    adults: String(adults),
+    travelClass: normalizedClass,
+  });
+  if (returnDate) params.set('returnDate', returnDate);
 
-  throw new Error(LIVE_INVENTORY_UNAVAILABLE_MESSAGE);
+  let response: Response;
+  try {
+    response = await fetch(`/api/flights/search?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+    });
+  } catch {
+    throw new FlightSearchError(
+      'SKYWINGS_API_UNAVAILABLE',
+      'The SkyWings server is unavailable. Please try again later.',
+      503
+    );
+  }
+
+  const payload = await response.json().catch(() => null) as FlightSearchResponse & ApiErrorPayload | null;
+  if (!response.ok) {
+    throw new FlightSearchError(
+      payload?.error?.code || 'FLIGHT_SEARCH_FAILED',
+      payload?.error?.message || 'Live flight search could not be completed.',
+      response.status
+    );
+  }
+
+  if (!payload || !Array.isArray(payload.data)) {
+    throw new FlightSearchError(
+      'INVALID_SERVER_RESPONSE',
+      'The SkyWings server returned an invalid flight-search response.',
+      502
+    );
+  }
+
+  return payload.data;
 };

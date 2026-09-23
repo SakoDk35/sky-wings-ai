@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, MapPin, Calendar, Sun, Heart, Loader2, Clock, Globe, Map } from 'lucide-react';
+import { generateTripItinerary } from '../services/geminiService';
 import { TripItinerary } from '../types';
 
 interface AnalyticsDashboardProps {
   language?: 'en' | 'ar';
 }
 
-const AI_PLANNER_AVAILABLE = false;
-
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ language = 'en' }) => {
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripItinerary | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   
   // Form State
   const [destination, setDestination] = useState('');
@@ -34,7 +34,19 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ language
 
   const handleGeneratePlan = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!destination || !typeAndLength) return;
+
+    setLoading(true);
     setTripPlan(null);
+    setGenerationError(null);
+    try {
+      const plan = await generateTripItinerary(destination, typeAndLength, season, hobbies, language as 'en' | 'ar');
+      setTripPlan(plan);
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : t('Itinerary generation failed.', 'فشل إنشاء مسار الرحلة.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,8 +68,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ language
              <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-4 drop-shadow-xl animate-in fade-in zoom-in-95 duration-700 delay-100">
                {t('Design Your Dream Journey', 'صمم رحلة أحلامك')}
              </h1>
-             <p className="text-lg md:text-xl text-slate-100 max-w-2xl mx-auto font-medium drop-shadow-md animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-               {t('AI itinerary generation is temporarily unavailable while Gemini is moved behind the secure SkyWings server.', 'إنشاء مسار الرحلة بالذكاء الاصطناعي غير متاح مؤقتًا أثناء نقل Gemini خلف خادم SkyWings الآمن.')}
+              <p className="text-lg md:text-xl text-slate-100 max-w-2xl mx-auto font-medium drop-shadow-md animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+                {t('Turn your travel style and interests into a personalized itinerary draft.', 'حوّل أسلوب سفرك واهتماماتك إلى مسودة مسار مخصصة.')}
              </p>
          </div>
       </div>
@@ -79,9 +91,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ language
               </div>
 
               <form onSubmit={handleGeneratePlan} className="space-y-5 flex-1">
-                <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
-                  {t('Security containment: this browser does not call Gemini or contain an API key. Planning will return in a later phase through a server endpoint.', 'احتواء أمني: لا يستدعي هذا المتصفح Gemini ولا يحتوي على مفتاح API. ستعود ميزة التخطيط لاحقًا عبر الخادم.')}
-                </div>
+                {generationError && (
+                  <div className="rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-3 text-xs text-red-700 dark:text-red-300">
+                    {generationError}
+                  </div>
+                )}
                 
                 {/* 1. Destination */}
                 <div className="space-y-1.5">
@@ -164,9 +178,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ language
                 <div className="pt-2 mt-auto">
                   <button 
                     type="submit" 
-                    disabled={loading || !AI_PLANNER_AVAILABLE}
+                    disabled={loading}
                     className={`w-full font-bold py-4 px-6 rounded-xl text-white flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 ${
-                        loading || !AI_PLANNER_AVAILABLE
+                        loading
                         ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed' 
                         : 'bg-gradient-to-r from-brand-600 to-sky-500 hover:from-brand-500 hover:to-sky-400'
                     }`}
@@ -175,16 +189,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ language
                       <>
                         <Loader2 className="animate-spin" /> {t('Curating Itinerary...', 'جارٍ تنظيم المسار...')}
                       </>
-                    ) : !AI_PLANNER_AVAILABLE ? (
-                      <>
-                        <Sparkles size={18} /> {t('Unavailable During Security Upgrade', 'غير متاح أثناء الترقية الأمنية')}
-                      </>
                     ) : (
                       <>
                         <Sparkles size={18} className="fill-current" /> {t('Generate Itinerary', 'إنشاء مسار الرحلة')}
                       </>
                     )}
                   </button>
+                  <p className="mt-2 text-center text-[11px] text-slate-400 dark:text-slate-500">{t('AI-generated planning draft', 'مسودة تخطيط مولدة بالذكاء الاصطناعي')}</p>
                 </div>
 
               </form>
@@ -307,8 +318,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ language
                       </div>
                       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                          {debouncedDestination 
-                           ? t(`Previewing ${debouncedDestination}. AI itinerary generation is temporarily unavailable during the secure server migration.`, `معاينة ${debouncedDestination}. إنشاء مسار الرحلة غير متاح مؤقتًا أثناء النقل الآمن إلى الخادم.`)
-                           : t("Enter a destination to preview it on the map. AI itinerary generation is temporarily unavailable.", "أدخل وجهة لمعاينتها على الخريطة. إنشاء مسار الرحلة بالذكاء الاصطناعي غير متاح مؤقتًا.")}
+                           ? t(`Previewing ${debouncedDestination}. Complete the form to generate an AI planning draft here.`, `معاينة ${debouncedDestination}. أكمل النموذج لإنشاء مسودة تخطيط بالذكاء الاصطناعي هنا.`)
+                           : t("Enter a destination to preview it on the map and create an AI planning draft.", "أدخل وجهة لمعاينتها على الخريطة وإنشاء مسودة تخطيط بالذكاء الاصطناعي.")}
                       </p>
                    </div>
 

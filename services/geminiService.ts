@@ -1,16 +1,61 @@
-import { Flight, PredictionAnalysis, RiskAnalysis, TripItinerary } from '../types';
+import { ChatMessage, Flight, PredictionAnalysis, RiskAnalysis, TripItinerary } from '../types';
 import { searchFlightOffers } from './amadeusService';
 import { analyzePriceIntelligence, convertToPredictionAnalysis } from './priceIntelligenceEngine';
 import { analyzeTravelRisk, convertToRiskAnalysis } from './travelRiskEngine';
 
-export const SECURE_AI_UNAVAILABLE_MESSAGE =
-  'This AI feature is temporarily unavailable while Gemini is moved behind the secure SkyWings server. No browser API key is used.';
+interface ApiErrorPayload {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
 
-/**
- * Flight search never fabricates inventory. The contained Amadeus adapter
- * currently validates input and then reports that verified inventory is
- * unavailable until the Phase 2 server proxy is implemented.
- */
+export class SkyWingsApiError extends Error {
+  code: string;
+  status: number;
+
+  constructor(code: string, message: string, status: number) {
+    super(message);
+    this.name = 'SkyWingsApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+const postJson = async <T>(path: string, body: unknown): Promise<T> => {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new SkyWingsApiError(
+      'SKYWINGS_API_UNAVAILABLE',
+      'The SkyWings server is unavailable. Please try again later.',
+      503
+    );
+  }
+
+  const payload = await response.json().catch(() => null) as ({ data?: T } & ApiErrorPayload) | null;
+  if (!response.ok) {
+    throw new SkyWingsApiError(
+      payload?.error?.code || 'API_REQUEST_FAILED',
+      payload?.error?.message || 'The request could not be completed.',
+      response.status
+    );
+  }
+  if (!payload || payload.data === undefined) {
+    throw new SkyWingsApiError(
+      'INVALID_SERVER_RESPONSE',
+      'The SkyWings server returned an invalid response.',
+      502
+    );
+  }
+  return payload.data;
+};
+
 export const findRealFlights = async (
   origin: string,
   destination: string,
@@ -23,7 +68,6 @@ export const findRealFlights = async (
   return searchFlightOffers(origin, destination, date, returnDate, adults, travelClass);
 };
 
-/** Local deterministic price heuristic. This is not live market intelligence. */
 export const analyzeFlightPrice = async (
   flight: Flight,
   allFlights?: Flight[]
@@ -32,7 +76,6 @@ export const analyzeFlightPrice = async (
   return convertToPredictionAnalysis(priceData, flight);
 };
 
-/** Local rule-based demo risk analysis. This is not real-time safety data. */
 export const analyzeTripRisk = async (
   destination: string,
   date: string
@@ -41,23 +84,49 @@ export const analyzeTripRisk = async (
   return convertToRiskAnalysis(riskData);
 };
 
-export const getSmartTravelTips = async (_destination: string): Promise<string> =>
-  SECURE_AI_UNAVAILABLE_MESSAGE;
+export const sendChatMessage = async (
+  message: string,
+  history: Pick<ChatMessage, 'role' | 'text'>[] = []
+): Promise<string> => {
+  const data = await postJson<{ message: string }>('/api/ai/chat', { message, history });
+  return data.message;
+};
+
+export const getSmartTravelTips = async (destination: string): Promise<string> =>
+  sendChatMessage(`Give me three concise general travel tips for ${destination}.`);
 
 export const generateTripItinerary = async (
-  _destination: string,
-  _typeAndLength: string,
-  _season: string,
-  _hobbies: string,
-  _language: 'en' | 'ar' = 'en'
-): Promise<TripItinerary | null> => null;
+  destination: string,
+  typeAndLength: string,
+  season: string,
+  hobbies: string,
+  language: 'en' | 'ar' = 'en'
+): Promise<TripItinerary> => postJson<TripItinerary>('/api/ai/travel-plan', {
+  destination,
+  typeAndLength,
+  season,
+  hobbies,
+  language,
+});
 
 export const getVisaRequirements = async (
-  _citizenship: string,
-  _destination: string
-): Promise<string> => SECURE_AI_UNAVAILABLE_MESSAGE;
+  citizenship: string,
+  destination: string
+): Promise<string> => {
+  const data = await postJson<{ guidance: string; disclaimer: string }>('/api/ai/visa', {
+    citizenship,
+    destination,
+  });
+  return `${data.guidance}\n\nImportant: ${data.disclaimer}`;
+};
 
 export const generatePackingList = async (
-  _destination: string,
-  _duration: string
-): Promise<string[]> => [SECURE_AI_UNAVAILABLE_MESSAGE];
+  destination: string,
+  duration: string
+): Promise<string[]> => {
+  const data = await postJson<{ items: string[] }>('/api/ai/packing-list', {
+    destination,
+    duration,
+  });
+  return data.items;
+};

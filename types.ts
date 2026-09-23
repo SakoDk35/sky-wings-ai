@@ -8,6 +8,7 @@ export interface Flight {
   departureTime: string;
   arrivalTime: string;
   price: number;
+  currency?: string; // ISO 4217 currency reported by the provider
   duration: string;
   stops: number;
   stopDetails?: string; // e.g. "via SHJ"
@@ -23,6 +24,10 @@ export interface Flight {
   aircraft?: string; // Aircraft model name
   segments?: FlightSegment[]; // Detailed segment information for flight path display
   carrierCode?: string; // IATA 2-letter carrier code for logo lookup
+  provider?: 'AMADEUS' | 'SERPAPI_GOOGLE_FLIGHTS';
+  providerOfferId?: string;
+  numberOfBookableSeats?: number;
+  lastTicketingDate?: string;
 }
 
 export interface FlightSegment {

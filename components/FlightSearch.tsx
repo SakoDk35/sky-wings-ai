@@ -1,12 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Calendar, MapPin, TrendingUp, AlertTriangle, Loader2, Users, Briefcase, Sparkles, Map, ShieldCheck, SlidersHorizontal, Check, X, Filter, CreditCard, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
+import { Search, Calendar, MapPin, TrendingUp, AlertTriangle, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CreditCard, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
 import { Flight, PredictionAnalysis, RiskAnalysis, MLPrediction } from '../types';
 import { analyzeFlightPrice, analyzeTripRisk, findRealFlights } from '../services/geminiService';
 import { getMLPricePrediction } from '../services/mlPredictionService';
 import { analyzeBookingTiming } from '../services/bookingTimingService';
 import { getAirportCoordinates, getMidpoint } from '../services/airportCoordinates';
-import { getCityName } from '../services/iataCodes';
+import { AirportOption, getCityName, searchAirports } from '../services/iataCodes';
 import FlightPathMap from './FlightPathTimeline';
 
 interface FlightSearchProps {
@@ -16,20 +16,150 @@ interface FlightSearchProps {
   language?: 'en' | 'ar';
 }
 
+interface AirportAutocompleteProps {
+  name: 'origin' | 'destination';
+  placeholder: string;
+}
+
+const AirportAutocomplete: React.FC<AirportAutocompleteProps> = ({ name, placeholder }) => {
+  const [inputValue, setInputValue] = useState('');
+  const [selectedAirport, setSelectedAirport] = useState<AirportOption | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(inputValue), 200);
+    return () => window.clearTimeout(timer);
+  }, [inputValue]);
+
+  const suggestions = useMemo(
+    () => selectedAirport ? [] : searchAirports(debouncedQuery),
+    [debouncedQuery, selectedAirport]
+  );
+
+  useEffect(() => {
+    setActiveIndex(suggestions.length > 0 ? 0 : -1);
+  }, [suggestions]);
+
+  const selectAirport = (airport: AirportOption) => {
+    setSelectedAirport(airport);
+    setInputValue(`${airport.city} — ${airport.name} (${airport.iata})`);
+    setDebouncedQuery('');
+    setIsOpen(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isOpen || suggestions.length === 0) {
+      if (event.key === 'ArrowDown' && inputValue.trim()) setIsOpen(true);
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((current) => (current + 1) % suggestions.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((current) => (current <= 0 ? suggestions.length - 1 : current - 1));
+    } else if (event.key === 'Enter' && activeIndex >= 0) {
+      event.preventDefault();
+      selectAirport(suggestions[activeIndex]);
+    } else if (event.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div className="relative group">
+      <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none z-10">
+        <MapPin className="text-slate-400 group-focus-within:text-brand-500" size={18} />
+      </div>
+      <input type="hidden" name={name} value={selectedAirport?.iata || ''} />
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(event) => {
+          setInputValue(event.target.value);
+          setSelectedAirport(null);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={isOpen && suggestions.length > 0}
+        aria-controls={`${name}-airport-options`}
+        aria-activedescendant={activeIndex >= 0 ? `${name}-airport-${activeIndex}` : undefined}
+        required
+        className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
+      />
+      {isOpen && debouncedQuery.trim() && !selectedAirport && (
+        <div
+          id={`${name}-airport-options`}
+          role="listbox"
+          className="absolute z-20 mt-2 w-full min-w-0 sm:min-w-[290px] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl"
+        >
+          {suggestions.length > 0 ? suggestions.map((airport, index) => (
+            <button
+              id={`${name}-airport-${index}`}
+              key={airport.iata}
+              type="button"
+              role="option"
+              aria-selected={index === activeIndex}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                selectAirport(airport);
+              }}
+              onMouseEnter={() => setActiveIndex(index)}
+              className={`w-full px-4 py-3 text-left rtl:text-right border-b last:border-b-0 border-slate-100 dark:border-slate-800 ${index === activeIndex ? 'bg-brand-50 dark:bg-brand-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            >
+              <div className="text-sm font-semibold text-slate-800 dark:text-white">
+                {airport.city} — {airport.name}
+              </div>
+              <div className="text-xs font-bold text-brand-600 dark:text-brand-400 mt-0.5">{airport.iata}</div>
+            </button>
+          )) : (
+            <div className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+              No matching airport. Select an airport from the supported list.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const formatTime = (timeStr: string) => {
   if (!timeStr) return '';
-  // Check if it's ISO or has 'T'
-  if (timeStr.includes('T')) {
-    const date = new Date(timeStr);
-    // Format: 3:15 PM (numeric hour removes leading zero)
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const localTime = timeStr.match(/[T\s](\d{2}):(\d{2})/);
+  if (localTime) {
+    const hour = Number(localTime[1]);
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${localTime[2]} ${hour >= 12 ? 'PM' : 'AM'}`;
   }
-  // Fallback if generic string
   return timeStr;
 };
 
+const formatMoney = (amount: number, currency = 'USD') => {
+  if (!Number.isFinite(amount)) return '—';
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(0)}`;
+  }
+};
+
+const formatFlightPrice = (flight?: Flight | null) =>
+  flight ? formatMoney(Number(flight.price), flight.currency || 'USD') : '—';
+
 // Extract IATA carrier code from airline string
-// Amadeus returns formats like: "Air France (AF)", "TK", "Turkish Airlines", etc.
+// Providers return formats like: "Air France (AF)", "TK", "Turkish Airlines", etc.
 const extractCarrierCode = (airline: string): string | null => {
   // Try to extract code from parentheses first (e.g., "Air France (AF)")
   const parenMatch = airline.match(/\(([A-Z]{2})\)/);
@@ -232,6 +362,15 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     const passengers = formData.get('passengers') as string;
     const travelClass = formData.get('class') as string;
 
+    if (!/^[A-Z]{3}$/.test(origin) || !/^[A-Z]{3}$/.test(destination)) {
+      setSearchError(t(
+        'Select both airports from the autocomplete suggestions.',
+        'اختر مطاري المغادرة والوصول من اقتراحات البحث.'
+      ));
+      setSearching(false);
+      return;
+    }
+
     try {
       const realFlights = await findRealFlights(origin, destination, date, returnDate, passengers, travelClass);
 
@@ -242,6 +381,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
         setTimeout(() => {
           realFlights.forEach(flight => runAIAnalysis(flight, realFlights));
         }, 500);
+      } else {
+        setSearchError('No verified live flight offers were returned for this search.');
       }
     } catch (error: any) {
       console.error("Search failed", error);
@@ -468,43 +609,22 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
   return (
     <div className="w-full max-w-5xl mx-auto px-4 pb-20">
       {/* Search Form */}
-      <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-900/90 rounded-2xl shadow-xl p-6 md:p-8 -mt-10 relative z-10 border border-slate-100 dark:border-slate-800 backdrop-blur-sm">
+      <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-900/90 rounded-2xl shadow-xl p-6 md:p-8 -mt-10 relative z-10 focus-within:z-30 border border-slate-100 dark:border-slate-800 backdrop-blur-sm">
         <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
           <Search className="text-brand-600 dark:text-brand-400" size={24} />
           {t('Find Your Perfect Flight', 'ابحث عن رحلتك المثالية')}
         </h2>
-        <div className="mb-5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-300">
-          {t('Live provider inventory is temporarily unavailable during a security upgrade. Searches will never show AI-generated or simulated flights.', 'مخزون الرحلات المباشر غير متاح مؤقتًا أثناء ترقية أمنية. لن تعرض عمليات البحث رحلات مولدة أو محاكاة بالذكاء الاصطناعي.')}
-        </div>
         <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-          {/* Origin */}
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
-              <MapPin className="text-slate-400 group-focus-within:text-brand-500" size={18} />
-            </div>
-            <input
-              name="origin"
-              type="text"
-              placeholder={t('From (e.g. London)', 'من (مثل: لندن)')}
-              className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
-              required
-            />
-          </div>
+          <AirportAutocomplete
+            name="origin"
+            placeholder={t('From city or airport', 'من مدينة أو مطار')}
+          />
 
-          {/* Destination */}
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
-              <MapPin className="text-slate-400 group-focus-within:text-brand-500" size={18} />
-            </div>
-            <input
-              name="destination"
-              type="text"
-              placeholder={t('To (e.g. New York)', 'إلى (مثل: نيويورك)')}
-              className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
-              required
-            />
-          </div>
+          <AirportAutocomplete
+            name="destination"
+            placeholder={t('To city or airport', 'إلى مدينة أو مطار')}
+          />
 
           {/* Departure Date */}
           <div className="relative group">
@@ -740,6 +860,12 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
           const pred = predictions[flight.id];
           const risk = risks[flight.id];
           const isAnalyzing = analyzingId === flight.id;
+          const hasVerifiedAmenities = Boolean(
+            (typeof flight.amenities?.baggage === 'string' && flight.amenities.baggage.trim()) ||
+            (typeof flight.amenities?.meal === 'string' && flight.amenities.meal.trim()) ||
+            typeof flight.amenities?.wifi === 'boolean' ||
+            typeof flight.amenities?.power === 'boolean'
+          );
 
           return (
             <div key={flight.id} className="bg-[#FFFFFF] rounded-2xl shadow-2xl overflow-hidden transition-all hover:shadow-3xl hover:-translate-y-1 duration-300 relative">
@@ -828,7 +954,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                   <div className="lg:min-w-[240px] flex flex-col gap-4">
                     {/* Price */}
                     <div className="text-center lg:text-right">
-                      <div className="text-4xl font-bold text-brand-600 dark:text-[#4338CA]">${typeof flight.price === 'number' ? flight.price : String(flight.price).replace(/[^0-9.]/g, '')}</div>
+                      <div className="text-4xl font-bold text-brand-600 dark:text-[#4338CA]">{formatFlightPrice(flight)}</div>
                       <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">Total price</div>
                     </div>
 
@@ -926,7 +1052,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               <div className="text-[11px] text-slate-600 dark:text-slate-300">
                                 <div className="font-semibold">Current result-set average</div>
                                 <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
-                                  ${Number.isFinite(pred.marketAverage) ? pred.marketAverage.toFixed(0) : '—'}
+                                  {Number.isFinite(pred.marketAverage) ? formatMoney(pred.marketAverage, flight.currency || 'USD') : '—'}
                                 </div>
                               </div>
                               <div className="text-[11px] text-slate-600 dark:text-slate-300">
@@ -1065,45 +1191,61 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               {/* Amenities Panel */}
               {expandedDetails[flight.id] && (
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">Unverified Amenity Preview</h4>
-                  <p className="text-xs text-amber-700 dark:text-amber-400 mb-4">Demo estimates only. Verify all amenities, baggage, and fare conditions with the airline.</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                    <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400"><Luggage size={16} /></div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Baggage</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.baggage || 'Not verified'}</span>
+                  {hasVerifiedAmenities && (
+                    <>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-3">Amenities &amp; Baggage</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                      {flight.amenities?.baggage && (
+                        <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400"><Luggage size={16} /></div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">Baggage</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities.baggage}</span>
+                          </div>
+                        </div>
+                      )}
+                      {flight.amenities?.meal && (
+                        <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400"><Utensils size={16} /></div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">Meal</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities.meal}</span>
+                          </div>
+                        </div>
+                      )}
+                      {typeof flight.amenities?.wifi === 'boolean' && (
+                        <div className={`flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${flight.amenities.wifi ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800 opacity-60'}`}>
+                          <div className={`p-2 rounded-lg ${flight.amenities.wifi ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}><Wifi size={16} /></div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">Wi-Fi</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities.wifi ? 'Reported available' : 'Reported unavailable'}</span>
+                          </div>
+                        </div>
+                      )}
+                      {typeof flight.amenities?.power === 'boolean' && (
+                        <div className={`flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${flight.amenities.power ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800 opacity-60'}`}>
+                          <div className={`p-2 rounded-lg ${flight.amenities.power ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}><Zap size={16} /></div>
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">Power</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities.power ? 'Reported available' : 'Reported unavailable'}</span>
+                          </div>
+                        </div>
+                      )}
                       </div>
+                    </>
+                  )}
+                  {flight.aircraft && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Aircraft: <span className="font-semibold text-slate-700 dark:text-slate-300">{flight.aircraft}</span></p>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400"><Utensils size={16} /></div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Meal</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.meal || 'Not verified'}</span>
-                      </div>
-                    </div>
-                    <div className={`flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${flight.amenities?.wifi !== false ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800 opacity-60'}`}>
-                      <div className={`p-2 rounded-lg ${flight.amenities?.wifi !== false ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}><Wifi size={16} /></div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Wi-Fi</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.wifi === true ? 'Reported available' : flight.amenities?.wifi === false ? 'Reported unavailable' : 'Not verified'}</span>
-                      </div>
-                    </div>
-                    <div className={`flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${flight.amenities?.power ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800 opacity-60'}`}>
-                      <div className={`p-2 rounded-lg ${flight.amenities?.power ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}><Zap size={16} /></div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Power</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.power === true ? 'Reported available' : flight.amenities?.power === false ? 'Reported unavailable' : 'Not verified'}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Aircraft: <span className="font-semibold text-slate-700 dark:text-slate-300">{flight.aircraft || 'Not verified'}</span></p>
-                  </div>
+                  )}
 
                   {/* Flight Path Timeline - Compact Version */}
                   <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-                    <h5 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-4">Flight Timeline</h5>
+                    <h5 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-1">Flight Timeline</h5>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-1">
+                      <Clock size={11} /> {t('All times are local to the listed airports.', 'جميع الأوقات محلية للمطارات المذكورة.')}
+                    </p>
 
                     {/* Compact Vertical Timeline */}
                     <div className="relative max-w-md mx-auto">
@@ -1111,17 +1253,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         flight.segments.map((segment, idx) => {
                           const isFirst = idx === 0;
                           const isLast = idx === flight.segments.length - 1;
-
-                          const formatSafeTime = (isoString: string) => {
-                            try {
-                              if (!isoString) return '—';
-                              const date = new Date(isoString);
-                              if (isNaN(date.getTime())) return '—';
-                              return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            } catch {
-                              return '—';
-                            }
-                          };
 
                           return (
                             <React.Fragment key={idx}>
@@ -1140,10 +1271,13 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
                                   <div className="flex-1 -mt-0.5">
                                     <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">
-                                      {formatSafeTime(segment.departure.at)}
+                                      {formatTime(segment.departure.at)}
                                     </div>
                                     <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-1">
                                       {getCityName(segment.departure.iataCode)}
+                                    </div>
+                                    <div className="mt-2 inline-flex items-center gap-1 rounded bg-sky-50 dark:bg-sky-900/20 px-2 py-1 text-[10px] font-medium text-sky-700 dark:text-sky-300">
+                                      <Clock size={10} /> {t('Flight time', 'مدة الرحلة')}: {segment.duration}
                                     </div>
                                   </div>
                                 </div>
@@ -1155,7 +1289,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
                                   <div className="flex-1 -mt-0.5">
                                     <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">
-                                      {formatSafeTime(segment.arrival.at)}
+                                      {formatTime(segment.arrival.at)}
                                     </div>
                                     <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-1">
                                       {getCityName(segment.arrival.iataCode)}
@@ -1167,27 +1301,9 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               {/* Layover Badge - Compact */}
                               {!isLast && (
                                 <div className="ml-[22px] mt-2 mb-6">
-                                  {(() => {
-                                    try {
-                                      const arrivalTime = new Date(segment.arrival.at);
-                                      const nextDepartureTime = new Date(flight.segments[idx + 1].departure.at);
-                                      const layoverMinutes = Math.floor((nextDepartureTime.getTime() - arrivalTime.getTime()) / (1000 * 60));
-                                      const layoverHours = Math.floor(layoverMinutes / 60);
-                                      const layoverMins = layoverMinutes % 60;
-
-                                      return (
-                                        <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-[10px] font-medium text-amber-800 dark:text-amber-300">
-                                          Layover: {getCityName(segment.arrival.iataCode)} ({layoverHours}h {layoverMins}m)
-                                        </div>
-                                      );
-                                    } catch {
-                                      return (
-                                        <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-[10px] font-medium text-amber-800 dark:text-amber-300">
-                                          Connection: {getCityName(segment.arrival.iataCode)}
-                                        </div>
-                                      );
-                                    }
-                                  })()}
+                                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                                    {t('Connection', 'توقف')}: {getCityName(segment.arrival.iataCode)}
+                                  </div>
                                 </div>
                               )}
                             </React.Fragment>
@@ -1238,51 +1354,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             )}
           </div>
         )}
-      </div>
-
-      {/* Why Book With SkyWings Section */}
-      <div className="mt-32 mb-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 tracking-tight">{t('SkyWings Demo Status', 'حالة عرض SkyWings التجريبي')}</h2>
-          <p className="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            {language === 'ar' ? 'هذه الميزات تجريبية وموسومة بوضوح أثناء بناء تكاملات آمنة وموثوقة.' : 'These features are demonstrational and clearly labeled while secure, verified integrations are being built.'}
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Card 1 */}
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/30 rounded-2xl flex items-center justify-center text-brand-500 mb-6 shadow-sm">
-              <Sparkles size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Experimental Analysis', 'تحليل تجريبي')}</h3>
-            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'ar' ? 'تعرض الواجهة نماذج تحليل محلية وتجريبية، وليست توقعات سوق حية أو موثقة.' : 'The interface demonstrates local and experimental analyses, not verified live-market predictions.'}
-            </p>
-          </div>
-
-          {/* Card 2 */}
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/30 rounded-2xl flex items-center justify-center text-brand-500 mb-6 shadow-sm">
-              <Map size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Smart Itineraries', 'مسارات ذكية')}</h3>
-            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'ar' ? 'تخطيط الرحلات بالذكاء الاصطناعي متوقف مؤقتًا حتى يكتمل التكامل الآمن عبر الخادم.' : 'AI itinerary planning is temporarily disabled until its secure server integration is complete.'}
-            </p>
-          </div>
-
-          {/* Card 3 */}
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 shadow-sm">
-              <ShieldCheck size={32} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Booking Demonstration', 'عرض توضيحي للحجز')}</h3>
-            <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'ar' ? 'لا تتم معالجة أي دفعة ولا إصدار أي تذكرة. يتم حفظ سجل تجريبي محليًا في هذا المتصفح فقط.' : 'No payment is processed and no ticket is issued. A demo record is stored only in this browser.'}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Booking Modal */}
@@ -1359,7 +1430,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
                         <span>{t('Flight Fare', 'سعر الرحلة')}</span>
-                        <span>${selectedFlight.price}</span>
+                        <span>{formatFlightPrice(selectedFlight)}</span>
                       </div>
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
                         <span>{t('Taxes & Fees', 'الضرائب والرسوم')}</span>
@@ -1367,7 +1438,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                       </div>
                       <div className="flex justify-between font-bold text-lg text-slate-900 dark:text-white border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
                         <span>{t('Total', 'الإجمالي')}</span>
-                        <span>${selectedFlight.price}</span>
+                        <span>{formatFlightPrice(selectedFlight)}</span>
                       </div>
                     </div>
                   </div>
@@ -1375,7 +1446,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                   {/* Action */}
                   <button onClick={processBooking} className="w-full py-4 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-white dark:to-slate-100 text-white dark:text-slate-900 font-bold rounded-xl hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-100 dark:hover:to-slate-200 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group active:scale-[0.98] transform duration-150">
                     <CreditCard size={20} className="group-hover:scale-110 transition-transform" />
-                    {t('Save Demo Record', 'حفظ سجل تجريبي')} · ${selectedFlight.price} display only
+                    {t('Save Demo Record', 'حفظ سجل تجريبي')} · {formatFlightPrice(selectedFlight)} display only
                   </button>
                 </div>
               )}
@@ -1444,7 +1515,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         const flight = results.find(f => f.id === flightId);
                         return (
                           <td key={flightId} className="py-4 px-4 text-center">
-                            <span className="text-2xl font-bold text-brand-600 dark:text-brand-400">${flight?.price}</span>
+                            <span className="text-2xl font-bold text-brand-600 dark:text-brand-400">{formatFlightPrice(flight)}</span>
                           </td>
                         );
                       })}

@@ -15,6 +15,8 @@ interface UserProfile {
   avatar?: string;
 }
 
+type LegalDocument = 'terms' | 'privacy' | 'data';
+
 // -- Translations --
 const TRANSLATIONS = {
   en: {
@@ -25,7 +27,7 @@ const TRANSLATIONS = {
     signup: "Sign Up",
     heroTitlePrefix: "Explore the World with",
     heroTitleSuffix: "Intelligent Travel",
-    heroDesc: "Explore the SkyWings interface while live inventory and AI features are safely moved behind server integrations. Demo features are clearly labeled.",
+    heroDesc: "Search flights, compare routes, and create personalized travel plans in one place.",
     findFlights: "Find Flights",
     aiTravelPlanner: "AI Travel Planner",
     welcomeBack: "Welcome Back",
@@ -63,7 +65,7 @@ const TRANSLATIONS = {
     signup: "إنشاء حساب",
     heroTitlePrefix: "استكشف العالم مع",
     heroTitleSuffix: "السفر الذكي",
-    heroDesc: "استكشف واجهة SkyWings أثناء نقل المخزون المباشر وميزات الذكاء الاصطناعي بأمان إلى تكاملات الخادم. الميزات التجريبية موسومة بوضوح.",
+    heroDesc: "ابحث عن الرحلات وقارن المسارات وأنشئ خطط سفر مخصصة في مكان واحد.",
     findFlights: "بحث عن رحلات",
     aiTravelPlanner: "مخطط السفر الذكي",
     welcomeBack: "مرحباً بعودتك",
@@ -93,6 +95,92 @@ const TRANSLATIONS = {
     packingList: "قائمة الأمتعة الذكية",
     menu: "القائمة"
   }
+};
+
+interface LegalDocumentModalProps {
+  document: LegalDocument;
+  onClose: () => void;
+}
+
+const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ document, onClose }) => {
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  const title = document === 'terms'
+    ? 'Terms of Use'
+    : document === 'privacy'
+      ? 'Privacy Policy'
+      : 'Data & Disclaimers';
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="legal-document-title">
+      <button className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} aria-label={`Close ${title}`} />
+      <article className="relative w-full max-w-2xl max-h-[88vh] overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl">
+        <header className="flex items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+          <h2 id="legal-document-title" className="text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
+          <button onClick={onClose} className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white transition" aria-label={`Close ${title}`}>
+            <X size={20} />
+          </button>
+        </header>
+        <div className="max-h-[calc(88vh-69px)] overflow-y-auto px-6 py-6 text-sm leading-7 text-slate-600 dark:text-slate-300">
+          {document === 'terms' && (
+            <div className="space-y-5">
+              <p>SkyWings AI is currently a travel-search and planning application. Use the information it provides as a starting point and verify important details with the relevant airline, provider, or official authority.</p>
+              <section>
+                <h3 className="font-bold text-slate-900 dark:text-white">Flight search</h3>
+                <p>Flight availability, schedules, and prices come from third-party data and may change. A displayed result is not a reservation, ticket, or guarantee of availability.</p>
+              </section>
+              <section>
+                <h3 className="font-bold text-slate-900 dark:text-white">Planning tools</h3>
+                <p>AI and analytical tools provide informational planning assistance. You remain responsible for checking travel, entry, safety, health, price, and availability information before relying on it.</p>
+              </section>
+              <section>
+                <h3 className="font-bold text-slate-900 dark:text-white">Demo functionality</h3>
+                <p>Features labeled as demos do not create real accounts, bookings, payments, or tickets. Do not enter real payment details or reuse a sensitive password in a demo feature.</p>
+              </section>
+            </div>
+          )}
+
+          {document === 'privacy' && (
+            <div className="space-y-5">
+              <p>This policy describes the data behavior of the current SkyWings AI application.</p>
+              <section>
+                <h3 className="font-bold text-slate-900 dark:text-white">Browser storage</h3>
+                <p>Theme preferences, the demo account profile, and demo booking history may be stored locally in your browser. Clearing site data removes this local information.</p>
+              </section>
+              <section>
+                <h3 className="font-bold text-slate-900 dark:text-white">Provider requests</h3>
+                <p>Flight-search criteria are sent to the SkyWings server and then to SerpApi for Google Flights results. AI prompts are sent to the SkyWings server and then to the configured AI provider. Provider credentials remain server-side and are not sent to the browser.</p>
+              </section>
+              <section>
+                <h3 className="font-bold text-slate-900 dark:text-white">Payments</h3>
+                <p>The current booking demonstration does not collect or process payment-card information.</p>
+              </section>
+            </div>
+          )}
+
+          {document === 'data' && (
+            <div className="space-y-4">
+              <p>The following limitations apply to the current version of SkyWings AI:</p>
+              <ul className="list-disc space-y-3 pl-5 marker:text-brand-500">
+                <li><strong className="text-slate-900 dark:text-white">Flight search:</strong> Search results use third-party Google Flights data through SerpApi. Prices, schedules, and availability can change and must be confirmed before purchase.</li>
+                <li><strong className="text-slate-900 dark:text-white">Currency Converter:</strong> Conversions use fixed sample rates, not live financial or foreign-exchange rates.</li>
+                <li><strong className="text-slate-900 dark:text-white">AI travel content:</strong> Itineraries, visa guidance, packing lists, and chat responses are informational AI-generated content. Verify practical details and consult official government or immigration sources where appropriate.</li>
+                <li><strong className="text-slate-900 dark:text-white">Risk and price intelligence:</strong> These are experimental, local analytical features and are not verified real-time safety or market intelligence.</li>
+                <li><strong className="text-slate-900 dark:text-white">ML price prediction:</strong> The prediction is experimental, uses synthetic training data, and does not guarantee future fares or price movements.</li>
+                <li><strong className="text-slate-900 dark:text-white">Booking and payment:</strong> The current flow is a demo. It does not reserve a flight, process payment, or issue a ticket.</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      </article>
+    </div>
+  );
 };
 
 const App: React.FC = () => {
@@ -131,6 +219,7 @@ const App: React.FC = () => {
 
   // Feature Modal State
   const [activeFeature, setActiveFeature] = useState<string | null>(null);
+  const [activeLegalDocument, setActiveLegalDocument] = useState<LegalDocument | null>(null);
 
   // Theme & Language State
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -443,13 +532,13 @@ const App: React.FC = () => {
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sky-100 text-xs font-bold uppercase tracking-widest mb-6 animate-in fade-in slide-in-from-top-4 duration-700">
                   <Plane size={14} className="text-sky-300 rtl:flip-x" />
-                  <span>Flight Search · Secure Migration</span>
+                  <span>Server-Backed Flight Search</span>
                 </div>
                 <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-2xl mb-4 animate-in fade-in zoom-in-95 duration-700 delay-100">
                   {language === 'ar' ? 'اعثر على مغامرتك القادمة' : 'Find Your Next Adventure'}
                 </h2>
                 <p className="text-lg md:text-xl text-slate-200 font-medium max-w-2xl mx-auto drop-shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                  {language === 'ar' ? 'المخزون المباشر غير متاح مؤقتًا، ولن يتم عرض رحلات مولدة أو قبول مدفوعات.' : 'Live inventory is temporarily unavailable; generated flights are not shown and payments are not accepted.'}
+                  {language === 'ar' ? 'ابحث عن الرحلات وقارن المسارات والأسعار لرحلتك القادمة.' : 'Search flights and compare routes and prices for your next trip.'}
                 </p>
               </div>
             </div>
@@ -487,13 +576,18 @@ const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      {(currentView !== AppView.HOME) && (
-        <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-12 mt-20">
-          <div className="max-w-7xl mx-auto px-4 text-center text-slate-400 text-sm">
-            <p>&copy; {new Date().getFullYear()} SkyWings.ai. All rights reserved.</p>
-          </div>
-        </footer>
-      )}
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-10">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-5 text-center">
+          <nav aria-label="Legal and information" className="flex flex-col sm:flex-row items-center justify-center gap-x-2 gap-y-2 text-sm">
+            <button onClick={() => setActiveLegalDocument('terms')} className="text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition">Terms of Use</button>
+            <span className="hidden sm:inline text-slate-300 dark:text-slate-700" aria-hidden="true">|</span>
+            <button onClick={() => setActiveLegalDocument('privacy')} className="text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition">Privacy Policy</button>
+            <span className="hidden sm:inline text-slate-300 dark:text-slate-700" aria-hidden="true">|</span>
+            <button onClick={() => setActiveLegalDocument('data')} className="text-slate-600 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 transition">Data &amp; Disclaimers</button>
+          </nav>
+          <p className="text-sm text-slate-400 dark:text-slate-500">&copy; 2026 SkyWings AI</p>
+        </div>
+      </footer>
 
       {/* Floating Chat Assistant */}
       <ChatAssistant />
@@ -535,6 +629,13 @@ const App: React.FC = () => {
         />
       )}
 
+      {activeLegalDocument && (
+        <LegalDocumentModal
+          document={activeLegalDocument}
+          onClose={() => setActiveLegalDocument(null)}
+        />
+      )}
+
       {/* Sidebar Drawer */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -565,6 +666,7 @@ interface FeatureModalProps {
 const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMode, toggleTheme, language, setLanguage, t }) => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [toolError, setToolError] = useState<string | null>(null);
 
   // Settings State
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -607,17 +709,31 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
   const checkVisa = async () => {
     if (!citizenship || !destination) return;
     setLoading(true);
-    const res = await getVisaRequirements(citizenship, destination);
-    setResult(res);
-    setLoading(false);
+    setToolError(null);
+    setResult(null);
+    try {
+      const res = await getVisaRequirements(citizenship, destination);
+      setResult(res);
+    } catch (error) {
+      setToolError(error instanceof Error ? error.message : 'Visa guidance is unavailable.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGeneratePackingList = async () => {
     if (!packDest || !packDuration) return;
     setLoading(true);
-    const items = await generatePackingList(packDest, packDuration);
-    setPackingList(items);
-    setLoading(false);
+    setToolError(null);
+    setPackingList([]);
+    try {
+      const items = await generatePackingList(packDest, packDuration);
+      setPackingList(items);
+    } catch (error) {
+      setToolError(error instanceof Error ? error.message : 'Packing-list generation is unavailable.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -669,9 +785,7 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
           {/* Currency Converter UI */}
           {feature === 'currency' && (
             <div className="space-y-4">
-              <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
-                Demo converter using fixed sample rates. Values are not live and must not be used for financial decisions.
-              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Sample rates · not live market data</p>
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Amount</label>
                 <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xl font-bold text-slate-900 dark:text-white focus:outline-brand-500" />
@@ -700,7 +814,7 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
               <button onClick={convertCurrency} className="w-full py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition">Convert</button>
               {result && (
                 <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/40 rounded-xl text-center">
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Converted Amount</p>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Sample Conversion</p>
                   <p className="text-3xl font-bold text-emerald-800 dark:text-emerald-300">{result} {toCurr}</p>
                 </div>
               )}
@@ -710,9 +824,7 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
           {/* Visa Checker UI */}
           {feature === 'visa' && (
             <div className="space-y-4">
-              <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
-                AI visa guidance is temporarily unavailable during the secure server migration. Always verify entry rules with official authorities.
-              </div>
+              <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">AI-generated guidance · verify current entry rules with an official government or immigration source.</p>
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Passport Country</label>
                 <input type="text" placeholder="e.g. United States" value={citizenship} onChange={e => setCitizenship(e.target.value)} className="w-full p-3 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-brand-500 placeholder-slate-400" />
@@ -724,6 +836,9 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
               <button onClick={checkVisa} disabled={loading} className="w-full py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition disabled:opacity-50 flex justify-center">
                 {loading ? <Loader2 className="animate-spin" /> : 'Check Requirements'}
               </button>
+              {toolError && (
+                <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-sm text-red-700 dark:text-red-300">{toolError}</div>
+              )}
               {result && (
                 <div className="mt-4 p-4 bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-800/40 rounded-xl text-sm text-slate-700 dark:text-slate-300 whitespace-pre-line leading-relaxed">
                   {result}
@@ -735,7 +850,7 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
           {/* Packing List UI */}
           {feature === 'packing-list' && (
             <div className="space-y-4">
-              <p className="text-sm text-amber-700 dark:text-amber-400">AI packing lists are temporarily unavailable during the secure server migration.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">AI-generated packing aid · check weather and activity requirements before packing.</p>
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Destination</label>
                 <input type="text" placeholder="e.g. Iceland" value={packDest} onChange={e => setPackDest(e.target.value)} className="w-full p-3 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-brand-500 placeholder-slate-400" />
@@ -747,6 +862,9 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
               <button onClick={handleGeneratePackingList} disabled={loading} className="w-full py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition disabled:opacity-50 flex justify-center">
                 {loading ? <Loader2 className="animate-spin" /> : 'Generate Packing List'}
               </button>
+              {toolError && (
+                <div className="p-3 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-sm text-red-700 dark:text-red-300">{toolError}</div>
+              )}
               {packingList.length > 0 && (
                 <div className="mt-4">
                   <h4 className="font-bold text-slate-800 dark:text-white mb-2 text-sm">Essentials for {packDest}</h4>
