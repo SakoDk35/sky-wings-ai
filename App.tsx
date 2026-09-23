@@ -25,7 +25,7 @@ const TRANSLATIONS = {
     signup: "Sign Up",
     heroTitlePrefix: "Explore the World with",
     heroTitleSuffix: "Intelligent Travel",
-    heroDesc: "Discover flights at the best prices with our AI-powered booking engine. Smart predictions, personalized itineraries, and seamless journeys.",
+    heroDesc: "Explore the SkyWings interface while live inventory and AI features are safely moved behind server integrations. Demo features are clearly labeled.",
     findFlights: "Find Flights",
     aiTravelPlanner: "AI Travel Planner",
     welcomeBack: "Welcome Back",
@@ -63,7 +63,7 @@ const TRANSLATIONS = {
     signup: "إنشاء حساب",
     heroTitlePrefix: "استكشف العالم مع",
     heroTitleSuffix: "السفر الذكي",
-    heroDesc: "اكتشف رحلات بأسعار تنافسية مع محرك الحجز المدعوم بالذكاء الاصطناعي. توقعات ذكية، مسارات مخصصة، ورحلات سلسة.",
+    heroDesc: "استكشف واجهة SkyWings أثناء نقل المخزون المباشر وميزات الذكاء الاصطناعي بأمان إلى تكاملات الخادم. الميزات التجريبية موسومة بوضوح.",
     findFlights: "بحث عن رحلات",
     aiTravelPlanner: "مخطط السفر الذكي",
     welcomeBack: "مرحباً بعودتك",
@@ -195,8 +195,8 @@ const App: React.FC = () => {
   };
 
   const handleBookingComplete = (flight: Flight) => {
-    // Generate a mock booking reference
-    const bookingRef = `SKY-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    // Generate a clearly labeled local demo reference (not a provider booking).
+    const bookingRef = `DEMO-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
     const flightWithRef = { ...flight, bookingReference: bookingRef, bookingDate: new Date() } as any;
 
     // Save to user-specific localStorage
@@ -443,13 +443,13 @@ const App: React.FC = () => {
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sky-100 text-xs font-bold uppercase tracking-widest mb-6 animate-in fade-in slide-in-from-top-4 duration-700">
                   <Plane size={14} className="text-sky-300 rtl:flip-x" />
-                  <span>Premium Flight Search</span>
+                  <span>Flight Search · Secure Migration</span>
                 </div>
                 <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-2xl mb-4 animate-in fade-in zoom-in-95 duration-700 delay-100">
                   {language === 'ar' ? 'اعثر على مغامرتك القادمة' : 'Find Your Next Adventure'}
                 </h2>
                 <p className="text-lg md:text-xl text-slate-200 font-medium max-w-2xl mx-auto drop-shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                  {language === 'ar' ? 'قارن بين شركات الطيران، وحلل الأسعار، واحجز بثقة باستخدام توقعاتنا المدعومة بالذكاء الاصطناعي.' : 'Compare airlines, analyze prices, and book with confidence using our AI-powered predictions.'}
+                  {language === 'ar' ? 'المخزون المباشر غير متاح مؤقتًا، ولن يتم عرض رحلات مولدة أو قبول مدفوعات.' : 'Live inventory is temporarily unavailable; generated flights are not shown and payments are not accepted.'}
                 </p>
               </div>
             </div>
@@ -669,6 +669,9 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
           {/* Currency Converter UI */}
           {feature === 'currency' && (
             <div className="space-y-4">
+              <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                Demo converter using fixed sample rates. Values are not live and must not be used for financial decisions.
+              </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Amount</label>
                 <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-xl font-bold text-slate-900 dark:text-white focus:outline-brand-500" />
@@ -707,6 +710,9 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
           {/* Visa Checker UI */}
           {feature === 'visa' && (
             <div className="space-y-4">
+              <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                AI visa guidance is temporarily unavailable during the secure server migration. Always verify entry rules with official authorities.
+              </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Passport Country</label>
                 <input type="text" placeholder="e.g. United States" value={citizenship} onChange={e => setCitizenship(e.target.value)} className="w-full p-3 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-brand-500 placeholder-slate-400" />
@@ -729,7 +735,7 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
           {/* Packing List UI */}
           {feature === 'packing-list' && (
             <div className="space-y-4">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Get a custom packing list based on your destination and trip duration.</p>
+              <p className="text-sm text-amber-700 dark:text-amber-400">AI packing lists are temporarily unavailable during the secure server migration.</p>
               <div>
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Destination</label>
                 <input type="text" placeholder="e.g. Iceland" value={packDest} onChange={e => setPackDest(e.target.value)} className="w-full p-3 border dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-brand-500 placeholder-slate-400" />
@@ -791,16 +797,16 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
                 <LifeBuoy size={32} />
               </div>
               <h4 className="text-lg font-bold text-slate-800 dark:text-white">How can we help?</h4>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Our support team is available 24/7 to assist you with your booking.</p>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mb-6">Demo help content only. Customer support and booking assistance are not currently active.</p>
 
               {/* Contact Options */}
               <div className="space-y-3">
-                <a href="mailto:support@skywings.ai" className="w-full py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center justify-center gap-2">
-                  <Mail size={18} /> Email Support
-                </a>
-                <a href="tel:+1234567890" className="w-full py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition flex items-center justify-center gap-2">
-                  <Smartphone size={18} /> Call Us: +1 (234) 567-890
-                </a>
+                <div className="w-full py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold rounded-xl flex items-center justify-center gap-2">
+                  <Mail size={18} /> Email support unavailable
+                </div>
+                <div className="w-full py-3 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold rounded-xl flex items-center justify-center gap-2">
+                  <Smartphone size={18} /> Phone support unavailable
+                </div>
               </div>
 
               {/* FAQ Section */}
@@ -809,15 +815,15 @@ const FeatureModal: React.FC<FeatureModalProps> = ({ feature, onClose, isDarkMod
                 <div className="space-y-2 text-sm">
                   <details className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 cursor-pointer">
                     <summary className="font-semibold text-slate-700 dark:text-slate-200">How do I book a flight?</summary>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Search for your desired route, select a flight, and complete the booking process by entering passenger details and payment information.</p>
+                    <p className="text-slate-600 dark:text-slate-400 mt-2">Real booking is not available. The current flow only saves a labeled demo record in this browser and does not collect payment information.</p>
                   </details>
                   <details className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 cursor-pointer">
                     <summary className="font-semibold text-slate-700 dark:text-slate-200">Can I cancel or change my booking?</summary>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Yes, cancellation and change policies vary by airline. Check your ticket conditions for specific details.</p>
+                    <p className="text-slate-600 dark:text-slate-400 mt-2">SkyWings does not currently issue tickets or provider bookings, so there is nothing to cancel or change through this demo.</p>
                   </details>
                   <details className="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 cursor-pointer">
                     <summary className="font-semibold text-slate-700 dark:text-slate-200">What is AI Price Prediction?</summary>
-                    <p className="text-slate-600 dark:text-slate-400 mt-2">Our ML-powered system analyzes flight prices to predict future trends and recommend the best time to book.</p>
+                    <p className="text-slate-600 dark:text-slate-400 mt-2">The current ML output is an experimental demonstration trained on synthetic data, not a validated live fare forecast.</p>
                   </details>
                 </div>
               </div>
@@ -1127,6 +1133,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode, onClose, onL
             </p>
           </div>
 
+          <div className="mb-6 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+            Demo-only browser account. Credentials are stored locally in this browser without production-grade protection. Do not use a real or reused password.
+          </div>
+
           {/* Form */}
           <form onSubmit={handleEmailAuth} className="space-y-4">
             {mode === 'signup' && (
@@ -1249,7 +1259,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, user, bookings, onC
         {/* Booking History List */}
         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6">
           <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-            <History size={20} className="text-brand-600 dark:text-brand-400" /> Booking History
+            <History size={20} className="text-brand-600 dark:text-brand-400" /> Local Demo Booking History
           </h3>
 
           {bookings.length === 0 ? (
@@ -1257,8 +1267,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, user, bookings, onC
               <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Ticket size={24} className="text-slate-400" />
               </div>
-              <p className="text-slate-600 dark:text-slate-400 font-medium mb-1">No bookings yet</p>
-              <p className="text-slate-400 dark:text-slate-500 text-sm">Your future adventures will appear here.</p>
+              <p className="text-slate-600 dark:text-slate-400 font-medium mb-1">No demo records yet</p>
+              <p className="text-slate-400 dark:text-slate-500 text-sm">No real bookings or tickets are created here.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -1272,7 +1282,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, user, bookings, onC
                       </div>
                       <span className="font-bold text-slate-800 dark:text-slate-200 text-sm">{booking.airline}</span>
                     </div>
-                    <span className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded font-medium border border-emerald-100 dark:border-emerald-900/50">Confirmed</span>
+                    <span className="text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-1 rounded font-medium border border-amber-100 dark:border-amber-900/50">Demo only · not booked</span>
                   </div>
 
                   <div className="flex justify-between items-center mb-4">
@@ -1297,7 +1307,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, user, bookings, onC
                   <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-3 flex justify-between items-center text-xs">
                     <div>
                       <span className="text-slate-400 block mb-0.5">Reference</span>
-                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{(booking as any).bookingReference || 'SKY-REF'}</span>
+                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{(booking as any).bookingReference || 'DEMO-REF'}</span>
                     </div>
                     <div className="text-right text-end">
                       <span className="text-slate-400 block mb-0.5">Date</span>

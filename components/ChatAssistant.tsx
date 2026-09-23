@@ -1,26 +1,20 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, Sparkles } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { createChatSession } from '../services/geminiService';
-import { GenerateContentResponse } from '@google/genai';
 
 export const ChatAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages] = useState<ChatMessage[]>([
     {
       id: 'init',
       role: 'model',
-      text: "Hello! I'm your Sky Wings AI assistant. Ask me about flights, destination risks, or travel tips.",
+      text: "AI chat is temporarily unavailable while Gemini is moved behind the secure SkyWings server. This browser does not send requests to Gemini or hold an API key.",
       timestamp: new Date()
     }
   ]);
-  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Keep chat session in ref to persist across renders
-  const chatSessionRef = useRef(createChatSession());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -30,66 +24,6 @@ export const ChatAssistant: React.FC = () => {
     scrollToBottom();
   }, [messages, isOpen]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: input,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      const responseStream = await chatSessionRef.current.sendMessageStream({ message: input });
-
-      let fullText = '';
-      const botMsgId = (Date.now() + 1).toString();
-
-      // Add placeholder for streaming message
-      setMessages(prev => [...prev, {
-        id: botMsgId,
-        role: 'model',
-        text: '',
-        timestamp: new Date(),
-        isStreaming: true
-      }]);
-
-      for await (const chunk of responseStream) {
-        const c = chunk as GenerateContentResponse;
-        const textChunk = c.text || '';
-        fullText += textChunk;
-
-        setMessages(prev => prev.map(msg =>
-          msg.id === botMsgId
-            ? { ...msg, text: fullText }
-            : msg
-        ));
-      }
-
-      // Finalize message
-      setMessages(prev => prev.map(msg =>
-        msg.id === botMsgId
-          ? { ...msg, isStreaming: false }
-          : msg
-      ));
-
-    } catch (error) {
-      console.error("Chat Error", error);
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        role: 'model',
-        text: "I'm having trouble connecting to the network right now. Please try again.",
-        timestamp: new Date()
-      }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
@@ -104,7 +38,7 @@ export const ChatAssistant: React.FC = () => {
               <div>
                 <h3 className="font-semibold text-sm">Sky Wings Assistant</h3>
                 <p className="text-xs text-brand-100 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> Online
+                  <span className="w-2 h-2 bg-amber-300 rounded-full" /> Secure migration in progress
                 </p>
               </div>
             </div>
@@ -128,7 +62,7 @@ export const ChatAssistant: React.FC = () => {
                 >
                   {msg.role === 'model' && (
                     <div className="flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-bold mb-1">
-                      <Sparkles size={10} /> AI Insight
+                      <Sparkles size={10} /> Service notice
                     </div>
                   )}
                   {msg.text}
@@ -146,17 +80,15 @@ export const ChatAssistant: React.FC = () => {
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ask about flights, weather..."
+                placeholder="AI chat temporarily unavailable"
                 className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border-transparent focus:bg-white dark:focus:bg-slate-900 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all text-slate-900 dark:text-white placeholder-slate-500"
-                disabled={isLoading}
+                disabled
               />
               <button
-                onClick={handleSend}
-                disabled={isLoading || !input.trim()}
+                disabled
                 className="p-2.5 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md"
               >
-                {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                <Send size={18} />
               </button>
             </div>
           </div>
@@ -169,12 +101,6 @@ export const ChatAssistant: React.FC = () => {
         className="group relative flex items-center justify-center w-14 h-14 bg-brand-600 hover:bg-brand-700 text-white rounded-full shadow-lg hover:shadow-brand-500/30 transition-all duration-300 hover:scale-105"
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
-        {!isOpen && (
-          <span className="absolute top-0 right-0 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-sky-500"></span>
-          </span>
-        )}
       </button>
     </div>
   );

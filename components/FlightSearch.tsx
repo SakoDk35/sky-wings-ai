@@ -473,6 +473,9 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
           <Search className="text-brand-600 dark:text-brand-400" size={24} />
           {t('Find Your Perfect Flight', 'ابحث عن رحلتك المثالية')}
         </h2>
+        <div className="mb-5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-300">
+          {t('Live provider inventory is temporarily unavailable during a security upgrade. Searches will never show AI-generated or simulated flights.', 'مخزون الرحلات المباشر غير متاح مؤقتًا أثناء ترقية أمنية. لن تعرض عمليات البحث رحلات مولدة أو محاكاة بالذكاء الاصطناعي.')}
+        </div>
         <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
           {/* Origin */}
@@ -839,7 +842,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                           }`}
                       >
                         {!isLoggedIn && <Lock size={15} strokeWidth={3} />}
-                        {isLoggedIn ? t('Select', 'اختر') : t('Login to Book', 'سجل للدخول للحجز')}
+                        {isLoggedIn ? t('Open Booking Demo', 'فتح عرض الحجز') : t('Login for Booking Demo', 'سجل للدخول إلى عرض الحجز')}
                       </button>
 
                       {/* Toggle Buttons Row */}
@@ -881,7 +884,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               {/* AI Analysis Panel */}
               {expandedAI[flight.id] && (pred || risk) && (
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-4">AI Intelligence Report</h4>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">Local Demo Analysis</h4>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mb-4">Heuristic output only. It may use a simulated price baseline and is not verified market guidance.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {pred && (
                       <div className="p-4 rounded-xl border-2 bg-white dark:bg-slate-900 border-emerald-200/60 dark:border-emerald-800/60">
@@ -920,13 +924,13 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                             </p>
                             <div className="grid grid-cols-2 gap-2 mt-1">
                               <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                                <div className="font-semibold">Market average</div>
+                                <div className="font-semibold">Current result-set average</div>
                                 <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
                                   ${Number.isFinite(pred.marketAverage) ? pred.marketAverage.toFixed(0) : '—'}
                                 </div>
                               </div>
                               <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                                <div className="font-semibold">Price vs market</div>
+                                <div className="font-semibold">Price vs shown results</div>
                                 <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
                                   {pred.priceDifferencePercent > 0 ? '+' : ''}
                                   {pred.priceDifferencePercent}%
@@ -946,7 +950,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                             <AlertTriangle size={18} />
                           </div>
                           <div className="flex-1 space-y-2">
-                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Travel Risk Assessment</h5>
+                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Demo Travel Risk Heuristic</h5>
+                            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Static rule-based sample only — not real-time safety, weather, or government advice.</p>
                             <div className="grid grid-cols-2 gap-2 text-[11px]">
                               <div>
                                 <div className="font-semibold text-slate-600 dark:text-slate-300">Weather risk</div>
@@ -985,7 +990,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                 </div>
                               </div>
                               <div>
-                                <div className="font-semibold text-slate-600 dark:text-slate-300">Safety score</div>
+                                <div className="font-semibold text-slate-600 dark:text-slate-300">Demo score</div>
                                 <div className={`font-bold ${risk.safetyScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
                                     risk.safetyScore >= 60 ? 'text-amber-600 dark:text-amber-400' :
                                       'text-red-600 dark:text-red-400'
@@ -1016,7 +1021,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                           <TrendingUp size={18} />
                         </div>
                         <div className="flex-1 space-y-2">
-                          <h5 className="font-bold text-slate-900 dark:text-white text-sm">ML Price Prediction</h5>
+                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Experimental ML Demo</h5>
+                            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Trained on synthetic data; not a validated live fare forecast.</p>
 
                           {/* Predicted Price */}
                           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
@@ -1059,39 +1065,40 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               {/* Amenities Panel */}
               {expandedDetails[flight.id] && (
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-4">Included Amenities</h4>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">Unverified Amenity Preview</h4>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mb-4">Demo estimates only. Verify all amenities, baggage, and fare conditions with the airline.</p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                     <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400"><Luggage size={16} /></div>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-900 dark:text-white">Baggage</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.baggage || '23kg + 7kg'}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.baggage || 'Not verified'}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400"><Utensils size={16} /></div>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-900 dark:text-white">Meal</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.meal || 'Included'}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.meal || 'Not verified'}</span>
                       </div>
                     </div>
                     <div className={`flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${flight.amenities?.wifi !== false ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800 opacity-60'}`}>
                       <div className={`p-2 rounded-lg ${flight.amenities?.wifi !== false ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}><Wifi size={16} /></div>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-900 dark:text-white">Wi-Fi</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.wifi ? 'Available' : 'N/A'}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.wifi === true ? 'Reported available' : flight.amenities?.wifi === false ? 'Reported unavailable' : 'Not verified'}</span>
                       </div>
                     </div>
                     <div className={`flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm ${flight.amenities?.power ? 'bg-white dark:bg-slate-900' : 'bg-slate-100 dark:bg-slate-800 opacity-60'}`}>
                       <div className={`p-2 rounded-lg ${flight.amenities?.power ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}><Zap size={16} /></div>
                       <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-900 dark:text-white">Power</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.power ? 'USB & AC' : 'N/A'}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">{flight.amenities?.power === true ? 'Reported available' : flight.amenities?.power === false ? 'Reported unavailable' : 'Not verified'}</span>
                       </div>
                     </div>
                   </div>
                   <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Aircraft: <span className="font-semibold text-slate-700 dark:text-slate-300">{flight.aircraft || 'Boeing 787-9 Dreamliner'}</span></p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Aircraft: <span className="font-semibold text-slate-700 dark:text-slate-300">{flight.aircraft || 'Not verified'}</span></p>
                   </div>
 
                   {/* Flight Path Timeline - Compact Version */}
@@ -1236,9 +1243,9 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
       {/* Why Book With SkyWings Section */}
       <div className="mt-32 mb-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
         <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 tracking-tight">{t('Why Book With SkyWings?', 'لماذا تحجز مع SkyWings؟')}</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 tracking-tight">{t('SkyWings Demo Status', 'حالة عرض SkyWings التجريبي')}</h2>
           <p className="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            {language === 'ar' ? 'نحن نجمع بين أحدث التقنيات والخدمة المتميزة لضمان أن تكون رحلتك مثالية من البداية إلى النهاية.' : 'We combine cutting-edge technology with premium service to ensure your journey is perfect from start to finish.'}
+            {language === 'ar' ? 'هذه الميزات تجريبية وموسومة بوضوح أثناء بناء تكاملات آمنة وموثوقة.' : 'These features are demonstrational and clearly labeled while secure, verified integrations are being built.'}
           </p>
         </div>
 
@@ -1248,9 +1255,9 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             <div className="w-16 h-16 bg-sky-50 dark:bg-sky-900/30 rounded-2xl flex items-center justify-center text-brand-500 mb-6 shadow-sm">
               <Sparkles size={32} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('AI-Powered Predictions', 'توقعات مدعومة بالذكاء الاصطناعي')}</h3>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Experimental Analysis', 'تحليل تجريبي')}</h3>
             <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'ar' ? 'خوارزمياتنا تحلل ملايين الرحلات للتنبؤ بأفضل وقت للحجز ووجهتك التالية.' : 'Our algorithms analyze millions of flights to predict the best time to book and where to go next.'}
+              {language === 'ar' ? 'تعرض الواجهة نماذج تحليل محلية وتجريبية، وليست توقعات سوق حية أو موثقة.' : 'The interface demonstrates local and experimental analyses, not verified live-market predictions.'}
             </p>
           </div>
 
@@ -1261,7 +1268,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             </div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Smart Itineraries', 'مسارات ذكية')}</h3>
             <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'ar' ? 'احصل على خطط سفر مخصصة يتم إنشاؤها في ثوانٍ بناءً على اهتماماتك وميزانيتك.' : 'Get personalized travel plans generated in seconds based on your interests and budget.'}
+              {language === 'ar' ? 'تخطيط الرحلات بالذكاء الاصطناعي متوقف مؤقتًا حتى يكتمل التكامل الآمن عبر الخادم.' : 'AI itinerary planning is temporarily disabled until its secure server integration is complete.'}
             </p>
           </div>
 
@@ -1270,9 +1277,9 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-500 mb-6 shadow-sm">
               <ShieldCheck size={32} />
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Secure Booking', 'حجز آمن')}</h3>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">{t('Booking Demonstration', 'عرض توضيحي للحجز')}</h3>
             <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-              {language === 'ar' ? 'أمان بمستوى بنكي لمدفوعاتك وبياناتك الشخصية. احجز براحة بال تامة.' : 'Bank-level security for your payments and personal data. Book with complete peace of mind.'}
+              {language === 'ar' ? 'لا تتم معالجة أي دفعة ولا إصدار أي تذكرة. يتم حفظ سجل تجريبي محليًا في هذا المتصفح فقط.' : 'No payment is processed and no ticket is issued. A demo record is stored only in this browser.'}
             </p>
           </div>
         </div>
@@ -1285,7 +1292,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 shrink-0">
               <h3 className="font-bold text-lg text-slate-800 dark:text-white">
-                {bookingStatus === 'confirmed' ? t('Booking Confirmed', 'تم تأكيد الحجز') : t('Complete Booking', 'إكمال الحجز')}
+                {bookingStatus === 'confirmed' ? t('Demo Record Saved', 'تم حفظ السجل التجريبي') : t('Booking Demonstration', 'عرض توضيحي للحجز')}
               </h3>
               <button onClick={closeBookingModal} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition">
                 <X size={20} className="text-slate-500 dark:text-slate-400" />
@@ -1297,20 +1304,19 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               {bookingStatus === 'processing' ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-4">
                   <Loader2 size={48} className="text-brand-600 animate-spin" />
-                  <p className="text-slate-500 dark:text-slate-400 font-medium">{t('Processing your payment...', 'جارٍ معالجة الدفع...')}</p>
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">{t('Saving a local demo record — no payment is being processed...', 'جارٍ حفظ سجل تجريبي محلي — لا تتم معالجة أي دفعة...')}</p>
                 </div>
               ) : bookingStatus === 'confirmed' ? (
                 <div className="text-center py-8">
                   <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
                     <CheckCircle size={40} />
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t("You're All Set!", 'أنت جاهز تماماً!')}</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t('Demo Complete', 'اكتمل العرض التجريبي')}</h2>
                   <p className="text-slate-500 dark:text-slate-400 mb-8">
-                    Your flight to {selectedFlight.destination} has been booked successfully. <br />
-                    Booking Reference: <span className="font-mono font-bold text-slate-800 dark:text-slate-200">SKY-{Math.random().toString(36).substr(2, 6).toUpperCase()}</span>
+                    No flight was booked, no payment was processed, and no ticket was issued. A clearly labeled demo record for {selectedFlight.destination} was saved in this browser only.
                   </p>
                   <button onClick={closeBookingModal} className="w-full py-3.5 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition shadow-lg">
-                    {t('Download Ticket', 'تنزيل التذكرة')}
+                    {t('Close Demo', 'إغلاق العرض')}
                   </button>
                 </div>
               ) : (
@@ -1346,9 +1352,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                     </div>
                   </div>
 
-                  {/* Payment Summary */}
+                  {/* Demo price summary */}
                   <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm">
-                    <h4 className="font-bold text-slate-800 dark:text-white mb-3">{t('Payment Details', 'تفاصيل الدفع')}</h4>
+                    <h4 className="font-bold text-slate-800 dark:text-white mb-1">{t('Demo Price Summary', 'ملخص السعر التجريبي')}</h4>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">Display only. No payment information is collected or processed.</p>
                     <div className="space-y-3 text-sm">
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
                         <span>{t('Flight Fare', 'سعر الرحلة')}</span>
@@ -1368,7 +1375,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                   {/* Action */}
                   <button onClick={processBooking} className="w-full py-4 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-white dark:to-slate-100 text-white dark:text-slate-900 font-bold rounded-xl hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-100 dark:hover:to-slate-200 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group active:scale-[0.98] transform duration-150">
                     <CreditCard size={20} className="group-hover:scale-110 transition-transform" />
-                    {t('Confirm & Pay', 'تأكيد ودفع')} ${selectedFlight.price}
+                    {t('Save Demo Record', 'حفظ سجل تجريبي')} · ${selectedFlight.price} display only
                   </button>
                 </div>
               )}

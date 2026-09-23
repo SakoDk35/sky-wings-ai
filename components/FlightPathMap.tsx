@@ -100,7 +100,7 @@ const FlightPathMap: React.FC<FlightPathMapProps> = ({ origin, destination }) =>
       <div className="absolute bottom-3 left-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 z-[400]">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-sky-500 rounded-full"></span>
-          Flight Route
+          Approximate demo route — fallback coordinates may be generated
         </div>
       </div>
     </div>
