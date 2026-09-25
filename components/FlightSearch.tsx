@@ -1122,38 +1122,43 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                     )}
 
                     <div className="p-3 rounded-xl border bg-white dark:bg-slate-900 border-sky-200/70 dark:border-sky-800/70">
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <h5 className="font-bold text-slate-900 dark:text-white text-sm">Flight Highlights</h5>
-                          {highlights.badges.length > 0 && (
-                            <div className="flex flex-wrap justify-end gap-1">
-                              {highlights.badges.map(badge => (
-                                <span key={badge} className="rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
-                                  {badge}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-300 shrink-0">
+                          <Plane size={16} />
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-[11px]">
-                          {highlights.price && (
-                            <div>
-                              <div className="font-semibold text-slate-600 dark:text-slate-300">Price</div>
-                              <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.price}</div>
-                            </div>
-                          )}
-                          {highlights.duration && (
-                            <div>
-                              <div className="font-semibold text-slate-600 dark:text-slate-300">Duration</div>
-                              <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.duration}</div>
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-semibold text-slate-600 dark:text-slate-300">Stops</div>
-                            <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.stops}</div>
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Flight Highlights</h5>
+                            {highlights.badges.length > 0 && (
+                              <div className="flex flex-wrap justify-end gap-1">
+                                {highlights.badges.map(badge => (
+                                  <span key={badge} className="rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                                    {badge}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-[11px]">
+                            {highlights.price && (
+                              <div>
+                                <div className="font-semibold text-slate-600 dark:text-slate-300">Price</div>
+                                <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.price}</div>
+                              </div>
+                            )}
+                            {highlights.duration && (
+                              <div>
+                                <div className="font-semibold text-slate-600 dark:text-slate-300">Duration</div>
+                                <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.duration}</div>
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-semibold text-slate-600 dark:text-slate-300">Stops</div>
+                              <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.stops}</div>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">Based on the current displayed search results.</p>
                         </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Based on the current displayed search results.</p>
                       </div>
                     </div>
                   </div>
@@ -1242,7 +1247,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
               {/* Itinerary, verified provider details, and timeline within Flight Details. */}
               {expandedDetails[flight.id] && (
-                <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
+                <div className="border-t border-slate-200/80 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/50 px-4 pb-4 pt-3 md:px-5 md:pb-5 md:pt-4 animate-in fade-in slide-in-from-top-2">
                   {hasVerifiedAmenities && (
                     <>
                       <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-3">Amenities &amp; Baggage</h4>
@@ -1287,101 +1292,134 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                     </>
                   )}
                   {flight.aircraft && (
-                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div className={hasVerifiedAmenities ? 'mt-3' : ''}>
                       <p className="text-xs text-slate-500 dark:text-slate-400">Aircraft: <span className="font-semibold text-slate-700 dark:text-slate-300">{flight.aircraft}</span></p>
                     </div>
                   )}
 
-                  {/* Flight Path Timeline - Compact Version */}
-                  <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
-                    <h5 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-1">Flight Timeline</h5>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-1">
+                  {/* Compact journey timeline; all durations come directly from provider data. */}
+                  <div className={hasVerifiedAmenities || flight.aircraft ? 'mt-4' : ''}>
+                    <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                      <h5 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Flight Timeline</h5>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                       <Clock size={11} /> {t('All times are local to the listed airports.', 'جميع الأوقات محلية للمطارات المذكورة.')}
-                    </p>
+                      </p>
+                    </div>
 
-                    {/* Compact Vertical Timeline */}
-                    <div className="relative max-w-md mx-auto">
+                    <div className="min-w-0">
                       {flight.segments && flight.segments.length > 0 ? (
-                        flight.segments.map((segment, idx) => {
-                          const isFirst = idx === 0;
+                        <div className={`grid grid-cols-1 gap-2.5 ${flight.segments.length > 1 ? 'md:grid-cols-2' : ''}`}>
+                          {flight.segments.map((segment, idx) => {
                           const isLast = idx === flight.segments.length - 1;
+                          const nextSegment = flight.segments[idx + 1];
+                          const hasVerifiedConnection = Boolean(
+                            nextSegment &&
+                            segment.arrival.iataCode === nextSegment.departure.iataCode
+                          );
 
                           return (
-                            <React.Fragment key={idx}>
-                              <div className="relative">
-                                {/* Vertical Line */}
-                                {!isLast && (
-                                  <div className="absolute left-[9px] top-6 bottom-[-16px] w-px bg-slate-300 dark:bg-slate-600"></div>
-                                )}
+                            <div key={idx} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                              <div className="mb-2 flex min-w-0 items-center justify-between gap-2 text-[10px]">
+                                <span className="font-bold uppercase tracking-wide text-slate-400">Segment {idx + 1}</span>
+                                <span className="min-w-0 truncate font-medium text-slate-500 dark:text-slate-400">
+                                  {segment.carrierCode} {segment.flightNumber}
+                                </span>
+                              </div>
 
-                                {/* Departure Point */}
-                                <div className="flex items-start gap-3 mb-6 last:mb-0">
-                                  <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 z-10 ${isFirst ? 'border-brand-500 bg-white dark:bg-slate-900' : 'border-slate-400 bg-white dark:bg-slate-900'
-                                    }`}>
-                                    {isFirst && <div className="w-1 h-1 rounded-full bg-brand-500"></div>}
-                                  </div>
-
-                                  <div className="flex-1 -mt-0.5">
-                                    <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">
+                              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(72px,0.8fr)_minmax(0,1fr)] items-center gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-brand-500 bg-white dark:bg-slate-900" />
+                                    <span className="whitespace-nowrap text-base font-bold leading-none text-slate-900 dark:text-white">
                                       {formatTime(segment.departure.at)}
-                                    </div>
-                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-1">
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 truncate text-xs font-bold text-slate-700 dark:text-slate-200">{segment.departure.iataCode}</div>
+                                  {getCityName(segment.departure.iataCode) !== segment.departure.iataCode && (
+                                    <div className="truncate text-[10px] text-slate-500 dark:text-slate-400" title={getCityName(segment.departure.iataCode)}>
                                       {getCityName(segment.departure.iataCode)}
                                     </div>
-                                    <div className="mt-2 inline-flex items-center gap-1 rounded bg-sky-50 dark:bg-sky-900/20 px-2 py-1 text-[10px] font-medium text-sky-700 dark:text-sky-300">
-                                      <Clock size={10} /> {t('Flight time', 'مدة الرحلة')}: {segment.duration}
-                                    </div>
-                                  </div>
+                                  )}
                                 </div>
 
-                                {/* Arrival Point */}
-                                <div className="flex items-start gap-3">
-                                  <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 z-10 ${isLast ? 'bg-emerald-500' : 'bg-slate-400'
-                                    }`}></div>
+                                <div className="min-w-0 text-center">
+                                  <div className="mb-1 flex items-center" aria-hidden="true">
+                                    <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                                    <Plane size={12} className="mx-1 shrink-0 rotate-90 text-sky-500" />
+                                    <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                                  </div>
+                                  <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                                    <Clock size={9} className="shrink-0" />
+                                    <span className="truncate">{segment.duration}</span>
+                                  </span>
+                                </div>
 
-                                  <div className="flex-1 -mt-0.5">
-                                    <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">
+                                <div className="min-w-0 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <span className="whitespace-nowrap text-base font-bold leading-none text-slate-900 dark:text-white">
                                       {formatTime(segment.arrival.at)}
-                                    </div>
-                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-1">
+                                    </span>
+                                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${isLast ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                  </div>
+                                  <div className="mt-1 truncate text-xs font-bold text-slate-700 dark:text-slate-200">{segment.arrival.iataCode}</div>
+                                  {getCityName(segment.arrival.iataCode) !== segment.arrival.iataCode && (
+                                    <div className="truncate text-[10px] text-slate-500 dark:text-slate-400" title={getCityName(segment.arrival.iataCode)}>
                                       {getCityName(segment.arrival.iataCode)}
                                     </div>
-                                  </div>
+                                  )}
                                 </div>
                               </div>
 
-                              {/* Layover Badge - Compact */}
-                              {!isLast && (
-                                <div className="ml-[22px] mt-2 mb-6">
-                                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-[10px] font-medium text-amber-800 dark:text-amber-300">
-                                    {t('Connection', 'توقف')}: {getCityName(segment.arrival.iataCode)}
-                                  </div>
+                              {hasVerifiedConnection && (
+                                <div className="mt-2 flex justify-center">
+                                  <span className="inline-flex max-w-full items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                                    <span className="truncate">
+                                      {t('Connection', 'توقف')} · {segment.arrival.iataCode}
+                                      {getCityName(segment.arrival.iataCode) !== segment.arrival.iataCode && ` — ${getCityName(segment.arrival.iataCode)}`}
+                                    </span>
+                                  </span>
                                 </div>
                               )}
-                            </React.Fragment>
+                            </div>
                           );
-                        })
+                          })}
+                        </div>
                       ) : (
-                        /* Fallback - Basic Timeline */
-                        <>
-                          <div className="flex items-start gap-3 mb-6 last:mb-0">
-                            <div className="w-4 h-4 rounded-full border-2 border-brand-500 bg-white dark:bg-slate-900 flex items-center justify-center shrink-0">
-                              <div className="w-1 h-1 rounded-full bg-brand-500"></div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(80px,1fr)_minmax(0,1fr)] items-center gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 shrink-0 rounded-full border-2 border-brand-500 bg-white dark:bg-slate-900" />
+                                <span className="whitespace-nowrap text-base font-bold text-slate-900 dark:text-white">{formatTime(flight.departureTime)}</span>
+                              </div>
+                              <div className="mt-1 text-xs font-bold text-slate-700 dark:text-slate-200">{flight.origin}</div>
+                              {getCityName(flight.origin) !== flight.origin && (
+                                <div className="truncate text-[10px] text-slate-500 dark:text-slate-400" title={getCityName(flight.origin)}>{getCityName(flight.origin)}</div>
+                              )}
                             </div>
-                            <div className="flex-1 -mt-0.5">
-                              <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">{formatTime(flight.departureTime)}</div>
-                              <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-1">{getCityName(flight.origin)}</div>
+                            <div className="min-w-0 text-center">
+                              <div className="mb-1 flex items-center" aria-hidden="true">
+                                <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                                <Plane size={12} className="mx-1 shrink-0 rotate-90 text-sky-500" />
+                                <span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                              </div>
+                              <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-900/30 dark:text-sky-300">
+                                <Clock size={9} className="shrink-0" />
+                                <span className="truncate">{flight.duration}</span>
+                              </span>
+                            </div>
+                            <div className="min-w-0 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <span className="whitespace-nowrap text-base font-bold text-slate-900 dark:text-white">{formatTime(flight.arrivalTime)}</span>
+                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+                              </div>
+                              <div className="mt-1 text-xs font-bold text-slate-700 dark:text-slate-200">{flight.destination}</div>
+                              {getCityName(flight.destination) !== flight.destination && (
+                                <div className="truncate text-[10px] text-slate-500 dark:text-slate-400" title={getCityName(flight.destination)}>{getCityName(flight.destination)}</div>
+                              )}
                             </div>
                           </div>
-
-                          <div className="flex items-start gap-3">
-                            <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shrink-0"></div>
-                            <div className="flex-1 -mt-0.5">
-                              <div className="text-lg font-bold text-slate-900 dark:text-white leading-none">{formatTime(flight.arrivalTime)}</div>
-                              <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mt-1">{getCityName(flight.destination)}</div>
-                            </div>
-                          </div>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>
