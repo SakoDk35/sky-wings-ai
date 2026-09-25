@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Calendar, MapPin, TrendingUp, AlertTriangle, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CreditCard, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
-import { Flight, PredictionAnalysis, RiskAnalysis, MLPredictionState } from '../types';
-import { analyzeFlightPrice, analyzeTripRisk, findRealFlights } from '../services/geminiService';
+import { Search, Calendar, MapPin, TrendingUp, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CreditCard, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
+import { Flight, PredictionAnalysis, MLPredictionState } from '../types';
+import { analyzeFlightPrice, findRealFlights } from '../services/geminiService';
 import { getMLPricePrediction } from '../services/mlPredictionService';
 import { analyzeBookingTiming } from '../services/bookingTimingService';
 import { getAirportCoordinates, getMidpoint } from '../services/airportCoordinates';
@@ -306,12 +306,88 @@ const parseDurationToMinutes = (str: string) => {
   return minutes || 0;
 };
 
+const parseValidDurationToMinutes = (duration: string): number | null => {
+  if (typeof duration !== 'string') return null;
+  const match = duration.trim().match(/^(?:(\d+)h)?(?:\s*(\d+)m)?$/i);
+  if (!match || (!match[1] && !match[2])) return null;
+  const minutes = Number(match[1] || 0) * 60 + Number(match[2] || 0);
+  return Number.isFinite(minutes) && minutes > 0 ? minutes : null;
+};
+
+const formatMinuteDifference = (totalMinutes: number): string => {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+};
+
+interface FlightHighlights {
+  price: string | null;
+  duration: string | null;
+  stops: string;
+  badges: string[];
+}
+
+const getFlightHighlights = (flight: Flight, displayedFlights: Flight[]): FlightHighlights => {
+  const canCompare = displayedFlights.length > 1;
+  const currentPrice = Number(flight.price);
+  const validPrices = displayedFlights
+    .map(item => Number(item.price))
+    .filter(price => Number.isFinite(price) && price > 0);
+  const currentDuration = parseValidDurationToMinutes(flight.duration);
+  const validDurations = displayedFlights
+    .map(item => parseValidDurationToMinutes(item.duration))
+    .filter((duration): duration is number => duration !== null);
+
+  let price: string | null = null;
+  let isCheapest = false;
+  if (canCompare) {
+    if (Number.isFinite(currentPrice) && currentPrice > 0 && validPrices.length >= 2) {
+      const cheapestPrice = Math.min(...validPrices);
+      isCheapest = Math.abs(currentPrice - cheapestPrice) < 0.005;
+      price = isCheapest
+        ? 'Cheapest option'
+        : `${formatMoney(currentPrice - cheapestPrice, flight.currency || 'USD')} more than cheapest shown`;
+    } else {
+      price = 'Price comparison unavailable';
+    }
+  }
+
+  let duration: string | null = null;
+  let isFastest = false;
+  if (canCompare) {
+    if (currentDuration !== null && validDurations.length >= 2) {
+      const fastestDuration = Math.min(...validDurations);
+      isFastest = currentDuration === fastestDuration;
+      duration = isFastest
+        ? 'Fastest option'
+        : `${formatMinuteDifference(currentDuration - fastestDuration)} slower than fastest shown`;
+    } else {
+      duration = 'Duration comparison unavailable';
+    }
+  }
+
+  const validStops = Number.isInteger(flight.stops) && flight.stops >= 0;
+  const stops = !validStops
+    ? 'Stop information unavailable'
+    : flight.stops === 0
+      ? 'Direct flight'
+      : `${flight.stops} ${flight.stops === 1 ? 'stop' : 'stops'}`;
+  const badges = [
+    ...(isCheapest ? ['Cheapest'] : []),
+    ...(isFastest ? ['Fastest'] : []),
+    ...(validStops && flight.stops === 0 ? ['Non-stop'] : []),
+  ];
+
+  return { price, duration, stops, badges };
+};
+
 export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRequest, onBookingComplete, language = 'en' }) => {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<Flight[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [predictions, setPredictions] = useState<Record<string, PredictionAnalysis>>({});
-  const [risks, setRisks] = useState<Record<string, RiskAnalysis>>({});
   const [mlPredictionStates, setMlPredictionStates] = useState<Record<string, MLPredictionState>>({});
   const mlRequests = useRef(new Map<string, Promise<MLPredictionState>>());
   const searchGeneration = useRef(0);
@@ -353,7 +429,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     setSearching(true);
     setResults([]);
     setPredictions({});
-    setRisks({});
     setMlPredictionStates({});
     setBookingTimings({});
     setExpandedId(null);
@@ -381,7 +456,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
       if (realFlights && realFlights.length > 0) {
         setResults(realFlights);
-        // Auto-run the local price, risk, and booking-timing analyses for all flights.
+        // Auto-run the local price and booking-timing analyses for all flights.
         // Pass the full array so each flight is compared against all others
         setTimeout(() => {
           realFlights.forEach(flight => runLocalAnalysis(flight, realFlights));
@@ -408,13 +483,11 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
       console.log('[FlightSearch] Total flights in search results:', flightsToUse.length);
       console.log('[FlightSearch] Passing', flightsToUse.length, 'flights to price comparison engine');
 
-      const [priceAnalysis, riskAnalysis, bookingTiming] = await Promise.all([
+      const [priceAnalysis, bookingTiming] = await Promise.all([
         analyzeFlightPrice(flight, flightsToUse),
-        analyzeTripRisk(flight.destination, flight.departureTime || 'Upcoming'),
         analyzeBookingTiming(flight)
       ]);
       setPredictions(prev => ({ ...prev, [flight.id]: priceAnalysis }));
-      setRisks(prev => ({ ...prev, [flight.id]: riskAnalysis }));
       setBookingTimings(prev => ({ ...prev, [flight.id]: bookingTiming }));
     } catch (error: any) {
       console.error('Local analysis error:', error);
@@ -570,45 +643,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
     return res;
   }, [results, filterStops, filterAirlines, sortBy]);
-
-  // Best value flight (price, duration, stops)
-  const bestValueFlightId = useMemo(() => {
-    if (!filteredAndSortedResults.length) return null;
-
-    const prices = filteredAndSortedResults.map(f => Number(f.price) || 0);
-    const durations = filteredAndSortedResults.map(f => parseDurationToMinutes(f.duration));
-    const minPrice = Math.min(...prices);
-    const maxPrice = Math.max(...prices);
-    const minDur = Math.min(...durations);
-    const maxDur = Math.max(...durations);
-
-    const norm = (value: number, min: number, max: number) => {
-      if (!isFinite(value) || !isFinite(min) || !isFinite(max) || max === min) return 0.5;
-      return (value - min) / (max - min);
-    };
-
-    let bestId: string | null = null;
-    let bestScore = -Infinity;
-
-    filteredAndSortedResults.forEach((flight, idx) => {
-      const priceNorm = norm(prices[idx], minPrice, maxPrice);   // 0 cheap .. 1 expensive
-      const durNorm = norm(durations[idx], minDur, maxDur);      // 0 short .. 1 long
-
-      const stopsPenalty = flight.stops === 0 ? 0 : flight.stops === 1 ? 0.25 : 0.5;
-
-      const score =
-        (1 - priceNorm) * 0.5 +     // cheaper is better
-        (1 - durNorm) * 0.3 +       // shorter is better
-        (1 - stopsPenalty) * 0.2;   // fewer stops is better
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestId = flight.id;
-      }
-    });
-
-    return bestId;
-  }, [filteredAndSortedResults]);
 
   const toggleStopFilter = (stop: number) => {
     setFilterStops(prev =>
@@ -879,7 +913,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
         {filteredAndSortedResults.map(flight => {
           const pred = predictions[flight.id];
-          const risk = risks[flight.id];
+          const highlights = getFlightHighlights(flight, filteredAndSortedResults);
           const mlState = mlPredictionStates[flight.id];
           const isAnalyzing = analyzingId === flight.id;
           const hasVerifiedAmenities = Boolean(
@@ -1019,10 +1053,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
               {/* Expandable Sections */}
 
-              {/* Rule-based/statistical analysis belongs to Flight Details. */}
-              {expandedDetails[flight.id] && (pred || risk) && (
+              {/* Search-result analysis and deterministic highlights belong to Flight Details. */}
+              {expandedDetails[flight.id] && (
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 md:p-5 animate-in fade-in slide-in-from-top-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-3">Flight Details — Price &amp; Risk</h4>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-3">Flight Details — Price &amp; Highlights</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                     {pred && (
                       <div className="p-3 rounded-xl border bg-white dark:bg-slate-900 border-emerald-200/70 dark:border-emerald-800/70">
@@ -1082,66 +1116,41 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                       </div>
                     )}
 
-                    {risk && (
-                      <div className="p-3 rounded-xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
-                        <div className="flex items-start gap-2.5">
-                          <div className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
-                            <AlertTriangle size={16} />
-                          </div>
-                          <div className="flex-1 min-w-0 space-y-1.5">
-                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Travel Risk Estimate</h5>
-                            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Rule-based demo — not live safety, weather, or government advice.</p>
-                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-                              <div>
-                                <div className="font-semibold text-slate-600 dark:text-slate-300">Weather risk</div>
-                                <div className={`capitalize font-medium ${risk.weatherRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
-                                    risk.weatherRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
-                                      'text-red-600 dark:text-red-400'
-                                  }`}>
-                                  {risk.weatherRisk === 'low' && '✓ '}
-                                  {risk.weatherRisk === 'medium' && '⚠ '}
-                                  {risk.weatherRisk === 'high' && '✗ '}
-                                  {risk.weatherRisk}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="font-semibold text-slate-600 dark:text-slate-300">Destination safety</div>
-                                <div className={`capitalize font-medium ${risk.safetyRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
-                                    risk.safetyRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
-                                      'text-red-600 dark:text-red-400'
-                                  }`}>
-                                  {risk.safetyRisk === 'low' && '✓ '}
-                                  {risk.safetyRisk === 'medium' && '⚠ '}
-                                  {risk.safetyRisk === 'high' && '✗ '}
-                                  {risk.safetyRisk}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="font-semibold text-slate-600 dark:text-slate-300">Overall risk</div>
-                                <div className={`capitalize font-medium ${risk.overallRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
-                                    risk.overallRisk === 'medium' ? 'text-amber-600 dark:text-amber-400' :
-                                      'text-red-600 dark:text-red-400'
-                                  }`}>
-                                  {risk.overallRisk === 'low' && '✓ '}
-                                  {risk.overallRisk === 'medium' && '⚠ '}
-                                  {risk.overallRisk === 'high' && '✗ '}
-                                  {risk.overallRisk}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="font-semibold text-slate-600 dark:text-slate-300">Demo score</div>
-                                <div className={`font-bold ${risk.safetyScore >= 80 ? 'text-emerald-600 dark:text-emerald-400' :
-                                    risk.safetyScore >= 60 ? 'text-amber-600 dark:text-amber-400' :
-                                      'text-red-600 dark:text-red-400'
-                                  }`}>
-                                  {risk.safetyScore}/100
-                                </div>
-                              </div>
+                    <div className="p-3 rounded-xl border bg-white dark:bg-slate-900 border-sky-200/70 dark:border-sky-800/70">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h5 className="font-bold text-slate-900 dark:text-white text-sm">Flight Highlights</h5>
+                          {highlights.badges.length > 0 && (
+                            <div className="flex flex-wrap justify-end gap-1">
+                              {highlights.badges.map(badge => (
+                                <span key={badge} className="rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                                  {badge}
+                                </span>
+                              ))}
                             </div>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-1.5 text-[11px]">
+                          {highlights.price && (
+                            <div>
+                              <div className="font-semibold text-slate-600 dark:text-slate-300">Price</div>
+                              <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.price}</div>
+                            </div>
+                          )}
+                          {highlights.duration && (
+                            <div>
+                              <div className="font-semibold text-slate-600 dark:text-slate-300">Duration</div>
+                              <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.duration}</div>
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-slate-600 dark:text-slate-300">Stops</div>
+                            <div className="font-medium text-slate-800 dark:text-slate-100">{highlights.stops}</div>
                           </div>
                         </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">Based on the current displayed search results.</p>
                       </div>
-                    )}
+                    </div>
                   </div>
 
                 </div>
@@ -1600,27 +1609,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                       })}
                     </tr>
 
-                    {/* AI Risk Assessment */}
-                    <tr className="border-b border-slate-200 dark:border-slate-800">
-                      <td className="py-4 px-4 font-semibold text-slate-700 dark:text-slate-300">AI Risk Level</td>
-                      {compareList.map(flightId => {
-                        const risk = risks[flightId];
-                        return (
-                          <td key={flightId} className="py-4 px-4 text-center">
-                            {risk ? (
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${risk.riskLevel === 'Low' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                                  risk.riskLevel === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
-                                    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                                }`}>
-                                {risk.riskLevel}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">Not analyzed</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
                   </tbody>
                 </table>
               </div>

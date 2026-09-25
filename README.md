@@ -50,6 +50,8 @@ Vite proxies `/api` to `http://127.0.0.1:3001` during development. Do not use
 - ML training/test metrics measure performance only on synthetic generated data;
   the model is not a validated real-world fare forecast and supports only explicit
   route, airline, date-range, and USD inputs.
-- Authentication, booking, payment, currency, risk, and ML demonstrations remain
+- Authentication, booking, payment, currency, and ML demonstrations remain
   labeled according to their current limitations.
+- Flight Highlights are deterministic comparisons limited to the currently displayed
+  search results; they are not market-wide rankings or recommendations.
 - No payment is processed and no ticket or provider booking is created.

@@ -171,7 +171,7 @@ const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ document, onClo
                 <li><strong className="text-slate-900 dark:text-white">Flight search:</strong> Search results use third-party Google Flights data through SerpApi. Prices, schedules, and availability can change and must be confirmed before purchase.</li>
                 <li><strong className="text-slate-900 dark:text-white">Currency Converter:</strong> Conversions use fixed sample rates, not live financial or foreign-exchange rates.</li>
                 <li><strong className="text-slate-900 dark:text-white">AI travel content:</strong> Itineraries, visa guidance, packing lists, and chat responses are informational AI-generated content. Verify practical details and consult official government or immigration sources where appropriate.</li>
-                <li><strong className="text-slate-900 dark:text-white">Risk and price intelligence:</strong> These are experimental, local analytical features and are not verified real-time safety or market intelligence.</li>
+                <li><strong className="text-slate-900 dark:text-white">Price Analysis and Flight Highlights:</strong> These are deterministic comparisons based only on the flight offers currently displayed, not historical or market-wide intelligence.</li>
                 <li><strong className="text-slate-900 dark:text-white">ML price prediction:</strong> The prediction is experimental, uses synthetic training data, and does not guarantee future fares or price movements.</li>
                 <li><strong className="text-slate-900 dark:text-white">Booking and payment:</strong> The current flow is a demo. It does not reserve a flight, process payment, or issue a ticket.</li>
               </ul>

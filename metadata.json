@@ -1,5 +1,5 @@
 {
   "name": "Sky Wings AI Travel",
-  "description": "A travel management graduation project with live provider flight search, AI planning tools, and clearly labeled experimental synthetic-data ML and risk analysis prototypes.",
+  "description": "A travel management graduation project with live provider flight search, deterministic flight-result highlights, AI planning tools, and a clearly labeled experimental synthetic-data ML prototype.",
   "requestFramePermissions": []
 }

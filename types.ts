@@ -76,20 +76,6 @@ export type MLPredictionState =
   | { status: 'unsupported'; code: string; message: string }
   | { status: 'unavailable'; message: string };
 
-export interface RiskAnalysis {
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
-  weatherAlerts: string[];
-  politicalStability: string;
-  delaysExpected: boolean;
-  // Local travel risk fields (no external AI)
-  overallAssessment: string;
-  safetyScore: number;
-  weatherRisk: 'low' | 'medium' | 'high';
-  safetyRisk: 'low' | 'medium' | 'high';
-  overallRisk: 'low' | 'medium' | 'high';
-  explanation: string;
-}
-
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';

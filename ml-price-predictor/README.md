@@ -54,7 +54,7 @@ In a flight's analysis panel, select **Run Experimental ML Prototype** to reques
 an inference. Searching and opening general analysis do not request ML predictions.
 Identical inputs reuse pending/completed requests for the component lifetime;
 loading, unsupported, unavailable, and result states are displayed separately.
-Price Intelligence, Risk Analysis, and Booking Timing still run automatically.
+Price Analysis and Booking Timing still run automatically.
 
 The service listens on `127.0.0.1:5000`. Start Express separately; the frontend
 calls `POST /api/ml/price-prediction`, and Express validates the browser request,

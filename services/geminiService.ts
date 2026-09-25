@@ -1,7 +1,6 @@
-import { ChatMessage, Flight, PredictionAnalysis, RiskAnalysis, TripItinerary } from '../types';
+import { ChatMessage, Flight, PredictionAnalysis, TripItinerary } from '../types';
 import { searchFlightOffers } from './amadeusService';
 import { analyzePriceIntelligence, convertToPredictionAnalysis } from './priceIntelligenceEngine';
-import { analyzeTravelRisk, convertToRiskAnalysis } from './travelRiskEngine';
 
 interface ApiErrorPayload {
   error?: {
@@ -74,14 +73,6 @@ export const analyzeFlightPrice = async (
 ): Promise<PredictionAnalysis> => {
   const priceData = analyzePriceIntelligence(allFlights || [flight], flight);
   return convertToPredictionAnalysis(priceData, flight);
-};
-
-export const analyzeTripRisk = async (
-  destination: string,
-  date: string
-): Promise<RiskAnalysis> => {
-  const riskData = analyzeTravelRisk(destination, date);
-  return convertToRiskAnalysis(riskData);
 };
 
 export const sendChatMessage = async (
