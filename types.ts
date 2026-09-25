@@ -71,19 +71,17 @@ export interface DemoBooking {
   createdAt: string;
 }
 
-export interface PredictionAnalysis {
-  recommendation?: 'BUY_NOW' | 'WAIT' | 'MONITOR'; // Optional - handled by ML Prediction instead
-  confidence: number;
-  reasoning: string;
-  predictedPriceChange: number; // Percentage
-  // Local price intelligence fields (no external AI)
-  priceCategory: 'cheap' | 'average' | 'expensive';
-  score?: number; // Removed - no grading system in Price Intelligence
-  marketAverage: number;
-  priceDifferencePercent: number;
-  explanation: string;
-  classification?: 'GREAT_DEAL' | 'GOOD_PRICE' | 'FAIR' | 'ABOVE_AVERAGE' | 'EXPENSIVE'; // Detailed 5-category classification
-}
+export type PredictionAnalysis =
+  | {
+      status: 'comparison';
+      resultSetAverage: number;
+      priceDifferencePercent: number;
+      classification: 'BELOW_AVERAGE' | 'NEAR_AVERAGE' | 'ABOVE_AVERAGE';
+    }
+  | {
+      status: 'unavailable';
+      message: string;
+    };
 
 export interface MLPrediction {
   predictedPrice: number;

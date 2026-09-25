@@ -1,6 +1,5 @@
-import { ChatMessage, Flight, PredictionAnalysis, TripItinerary } from '../types';
+import { ChatMessage, Flight, TripItinerary } from '../types';
 import { searchFlightOffers } from './amadeusService';
-import { analyzePriceIntelligence, convertToPredictionAnalysis } from './priceIntelligenceEngine';
 
 interface ApiErrorPayload {
   error?: {
@@ -65,14 +64,6 @@ export const findRealFlights = async (
 ): Promise<Flight[]> => {
   const adults = passengers ? Number.parseInt(passengers, 10) || 1 : 1;
   return searchFlightOffers(origin, destination, date, returnDate, adults, travelClass);
-};
-
-export const analyzeFlightPrice = async (
-  flight: Flight,
-  allFlights?: Flight[]
-): Promise<PredictionAnalysis> => {
-  const priceData = analyzePriceIntelligence(allFlights || [flight], flight);
-  return convertToPredictionAnalysis(priceData, flight);
 };
 
 export const sendChatMessage = async (

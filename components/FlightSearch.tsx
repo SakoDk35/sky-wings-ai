@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, Calendar, MapPin, TrendingUp, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
-import { Flight, PredictionAnalysis, MLPredictionState } from '../types';
-import { analyzeFlightPrice, findRealFlights } from '../services/geminiService';
+import { Flight, MLPredictionState } from '../types';
+import { findRealFlights } from '../services/geminiService';
 import { getMLPricePrediction } from '../services/mlPredictionService';
 import { analyzeBookingTiming } from '../services/bookingTimingService';
+import { analyzeDisplayedFlightPrices } from '../services/priceIntelligenceEngine';
 import { getAirportCoordinates, getMidpoint } from '../services/airportCoordinates';
 import { AirportOption, getCityName, searchAirports } from '../services/iataCodes';
 import FlightPathMap from './FlightPathTimeline';
@@ -386,8 +387,6 @@ const getFlightHighlights = (flight: Flight, displayedFlights: Flight[]): Flight
 export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRequest, onBookingComplete, language = 'en' }) => {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<Flight[]>([]);
-  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
-  const [predictions, setPredictions] = useState<Record<string, PredictionAnalysis>>({});
   const [mlPredictionStates, setMlPredictionStates] = useState<Record<string, MLPredictionState>>({});
   const mlRequests = useRef(new Map<string, Promise<MLPredictionState>>());
   const searchGeneration = useRef(0);
@@ -429,7 +428,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     searchGeneration.current += 1;
     setSearching(true);
     setResults([]);
-    setPredictions({});
     setMlPredictionStates({});
     setBookingTimings({});
     setExpandedId(null);
@@ -457,10 +455,13 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
       if (realFlights && realFlights.length > 0) {
         setResults(realFlights);
-        // Auto-run the local price and booking-timing analyses for all flights.
-        // Pass the full array so each flight is compared against all others
+        // Preserve the existing automatic booking-timing calculation. Price
+        // Analysis is derived synchronously from the displayed result set.
         setTimeout(() => {
-          realFlights.forEach(flight => runLocalAnalysis(flight, realFlights));
+          realFlights.forEach(flight => {
+            const bookingTiming = analyzeBookingTiming(flight);
+            setBookingTimings(prev => ({ ...prev, [flight.id]: bookingTiming }));
+          });
         }, 500);
       } else {
         setSearchError('No verified live flight offers were returned for this search.');
@@ -470,43 +471,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
       setSearchError(error?.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setSearching(false);
-    }
-  };
-
-  const runLocalAnalysis = async (flight: Flight, allFlights?: Flight[]) => {
-    setAnalyzingId(flight.id);
-
-    try {
-      // Use provided flights array or fallback to current results from state
-      const flightsToUse = allFlights || results;
-
-      console.log('[FlightSearch] Running local analysis for flight:', flight.id);
-      console.log('[FlightSearch] Total flights in search results:', flightsToUse.length);
-      console.log('[FlightSearch] Passing', flightsToUse.length, 'flights to price comparison engine');
-
-      const [priceAnalysis, bookingTiming] = await Promise.all([
-        analyzeFlightPrice(flight, flightsToUse),
-        analyzeBookingTiming(flight)
-      ]);
-      setPredictions(prev => ({ ...prev, [flight.id]: priceAnalysis }));
-      setBookingTimings(prev => ({ ...prev, [flight.id]: bookingTiming }));
-    } catch (error: any) {
-      console.error('Local analysis error:', error);
-      // Handle rate limit (429) gracefully
-      if (error?.message?.includes('429') || error?.status === 429) {
-        // Set a pending state instead of showing error
-        setPredictions(prev => ({
-          ...prev,
-          [flight.id]: {
-            recommendation: 'MONITOR' as const,
-            confidence: 0,
-            reasoning: 'Analysis temporarily unavailable due to high demand. Please try again shortly.',
-            predictedPriceChange: 0
-          }
-        }));
-      }
-    } finally {
-      setAnalyzingId(null);
     }
   };
 
@@ -648,6 +612,11 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
     return res;
   }, [results, filterStops, filterAirlines, sortBy]);
+
+  const priceAnalyses = useMemo(
+    () => analyzeDisplayedFlightPrices(filteredAndSortedResults),
+    [filteredAndSortedResults],
+  );
 
   const toggleStopFilter = (stop: number) => {
     setFilterStops(prev =>
@@ -917,10 +886,9 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
         </div>
 
         {filteredAndSortedResults.map(flight => {
-          const pred = predictions[flight.id];
+          const pred = priceAnalyses[flight.id];
           const highlights = getFlightHighlights(flight, filteredAndSortedResults);
           const mlState = mlPredictionStates[flight.id];
-          const isAnalyzing = analyzingId === flight.id;
           const hasVerifiedAmenities = Boolean(
             (typeof flight.amenities?.baggage === 'string' && flight.amenities.baggage.trim()) ||
             (typeof flight.amenities?.meal === 'string' && flight.amenities.meal.trim()) ||
@@ -1074,48 +1042,53 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                               <h5 className="font-bold text-slate-900 dark:text-white text-sm">Price Analysis</h5>
                               <span
                                 className={`max-w-full text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-right ${
-                                  // Use detailed classification if available, otherwise fallback to UI category
-                                  pred.classification === 'GREAT_DEAL'
+                                  pred.status === 'unavailable'
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                                    : pred.classification === 'BELOW_AVERAGE'
                                     ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                                    : pred.classification === 'GOOD_PRICE'
-                                      ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                                      : pred.classification === 'FAIR'
+                                    : pred.classification === 'NEAR_AVERAGE'
                                         ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                                        : pred.classification === 'ABOVE_AVERAGE'
-                                          ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300'
-                                          : pred.classification === 'EXPENSIVE'
-                                            ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-                                            : pred.priceCategory === 'cheap'
-                                              ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
-                                              : pred.priceCategory === 'expensive'
-                                                ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                                        : 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300'
                                   }`}
                               >
-                                Rule-based · {(pred.classification || pred.priceCategory).replace(/_/g, ' ')}
+                                {pred.status === 'comparison'
+                                  ? `Rule-based · ${
+                                      pred.classification === 'BELOW_AVERAGE'
+                                        ? 'Below current result-set average'
+                                        : pred.classification === 'ABOVE_AVERAGE'
+                                          ? 'Above current result-set average'
+                                          : 'Near current result-set average'
+                                    }`
+                                  : 'Not comparable'}
                               </span>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-1.5 pt-0.5">
-                              <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                                <div className="font-semibold">Current flight price</div>
-                                <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
-                                  {formatFlightPrice(flight)}
+                            {pred.status === 'comparison' ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-1.5 pt-0.5">
+                                <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                                  <div className="font-semibold">Current flight price</div>
+                                  <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
+                                    {formatFlightPrice(flight)}
+                                  </div>
+                                </div>
+                                <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                                  <div className="font-semibold">Current result-set average</div>
+                                  <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
+                                    {formatMoney(pred.resultSetAverage, flight.currency || 'USD')}
+                                  </div>
+                                </div>
+                                <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                                  <div className="font-semibold">Difference from average</div>
+                                  <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
+                                    {pred.priceDifferencePercent > 0 ? '+' : ''}
+                                    {pred.priceDifferencePercent}%
+                                  </div>
                                 </div>
                               </div>
-                              <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                                <div className="font-semibold">Current result-set average</div>
-                                <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
-                                  {Number.isFinite(pred.marketAverage) ? formatMoney(pred.marketAverage, flight.currency || 'USD') : '—'}
-                                </div>
-                              </div>
-                              <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                                <div className="font-semibold">Difference from average</div>
-                                <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
-                                  {pred.priceDifferencePercent > 0 ? '+' : ''}
-                                  {pred.priceDifferencePercent}%
-                                </div>
-                              </div>
-                            </div>
+                            ) : (
+                              <p className="text-[11px] leading-4 text-slate-600 dark:text-slate-300">
+                                {pred.message}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
