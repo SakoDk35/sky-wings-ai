@@ -513,7 +513,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
   const requestMLPrediction = async (flight: Flight) => {
     // Cache both pending and completed requests by inputs, not reusable offer IDs.
     const key = JSON.stringify([flight.origin, flight.destination, flight.airline,
-      flight.departureTime, flight.price, flight.currency]);
+      flight.departureTime, flight.price, flight.currency, flight.duration, flight.stops]);
     const generation = searchGeneration.current;
     setMlPredictionStates(prev => ({ ...prev, [flight.id]: { status: 'loading' } }));
     let pending = mlRequests.current.get(key);
@@ -1177,7 +1177,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         Run Experimental ML Prototype
                       </button>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Synthetic-data model output; not a validated real-world fare forecast.
+                        Experimental ML prototype trained on synthetic data. This is not a verified airfare forecast.
                       </p>
                     </div>
                   )}
@@ -1206,7 +1206,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                           <TrendingUp size={18} />
                         </div>
                         <div className="flex-1 space-y-2">
-                          <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Synthetic-data model output; not a validated real-world fare forecast.</p>
+                          <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Experimental ML prototype trained on synthetic data. This is not a verified airfare forecast.</p>
 
                           {/* Predicted Price */}
                           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">

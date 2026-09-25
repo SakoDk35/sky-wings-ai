@@ -19,18 +19,21 @@ interface MLPredictionPayload {
 }
 
 const UNSUPPORTED_CODES = new Set([
-  'UNSUPPORTED_ROUTE',
-  'UNSUPPORTED_AIRLINE',
   'UNSUPPORTED_CURRENCY',
   'UNSUPPORTED_DATE_RANGE',
+  'UNSUPPORTED_PRICE_RANGE',
+  'UNSUPPORTED_DURATION_RANGE',
+  'UNSUPPORTED_STOPS',
+  'INVALID_DURATION',
+  'INVALID_STOPS',
 ]);
 
-const extractAirportCode = (location: string): string | null => {
-  const exactCode = location.trim().toUpperCase().match(/^[A-Z]{3}$/);
-  if (exactCode) return exactCode[0];
-
-  const parentheticalCode = location.toUpperCase().match(/\(([A-Z]{3})\)$/);
-  return parentheticalCode ? parentheticalCode[1] : null;
+const parseDurationMinutes = (duration: string): number | null => {
+  if (typeof duration !== 'string') return null;
+  const match = duration.trim().match(/^(?:(\d+)h)?(?:\s*(\d+)m)?$/i);
+  if (!match || (!match[1] && !match[2])) return null;
+  const minutes = Number(match[1] || 0) * 60 + Number(match[2] || 0);
+  return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
 };
 
 const parsePrediction = (payload: MLPredictionPayload): MLPrediction | null => {
@@ -63,15 +66,14 @@ const parsePrediction = (payload: MLPredictionPayload): MLPrediction | null => {
 };
 
 export const getMLPricePrediction = async (flight: Flight): Promise<MLPredictionState> => {
-  const originCode = extractAirportCode(flight.origin);
-  const destinationCode = extractAirportCode(flight.destination);
   const departureDate = flight.departureTime.split('T')[0];
+  const totalDurationMinutes = parseDurationMinutes(flight.duration);
 
-  if (!originCode || !destinationCode) {
+  if (totalDurationMinutes === null) {
     return {
       status: 'unsupported',
-      code: 'UNSUPPORTED_ROUTE',
-      message: 'This route is not supported by the experimental model.',
+      code: 'INVALID_DURATION',
+      message: 'This flight does not include a usable provider duration.',
     };
   }
 
@@ -80,10 +82,10 @@ export const getMLPricePrediction = async (flight: Flight): Promise<MLPrediction
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
-        route: `${originCode}-${destinationCode}`,
-        airline: flight.airline,
         departure_date: departureDate,
         current_price: flight.price,
+        total_duration_minutes: totalDurationMinutes,
+        stops: flight.stops,
         currency: flight.currency || 'USD',
       }),
     });

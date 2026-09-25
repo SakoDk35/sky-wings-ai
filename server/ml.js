@@ -1,13 +1,14 @@
 import { ApiError } from './apiError.js';
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-const ROUTE_REGEX = /^[A-Z]{3}-[A-Z]{3}$/;
 const ML_TIMEOUT_MS = 5_000;
-const MAX_DAYS_BEFORE_DEPARTURE = 120;
+const MAX_DAYS_BEFORE_DEPARTURE = 365;
 const SAFE_UPSTREAM_ERRORS = new Set([
-  'UNSUPPORTED_ROUTE',
-  'UNSUPPORTED_AIRLINE',
   'UNSUPPORTED_CURRENCY',
+  'UNSUPPORTED_DATE_RANGE',
+  'UNSUPPORTED_PRICE_RANGE',
+  'UNSUPPORTED_DURATION_RANGE',
+  'UNSUPPORTED_STOPS',
 ]);
 
 const parseDateUtc = (value) => {
@@ -32,25 +33,35 @@ export const validateMlPredictionInput = (body, now = new Date()) => {
     throw new ApiError('INVALID_REQUEST', 'A JSON request body is required.', 400);
   }
 
-  const route = typeof body.route === 'string' ? body.route.trim().toUpperCase() : '';
-  const airline = typeof body.airline === 'string' ? body.airline.trim() : '';
   const departureDate = typeof body.departure_date === 'string' ? body.departure_date.trim() : '';
   const currency = typeof body.currency === 'string' ? body.currency.trim().toUpperCase() : '';
   const currentPrice = typeof body.current_price === 'number' ? body.current_price : Number.NaN;
-
-  if (!ROUTE_REGEX.test(route)) {
-    throw new ApiError('INVALID_ROUTE', 'route must contain two three-letter IATA codes.', 400);
-  }
-  if (!airline || airline.length > 200) {
-    throw new ApiError('INVALID_AIRLINE', 'airline is required and must be at most 200 characters.', 400);
-  }
+  const totalDurationMinutes = typeof body.total_duration_minutes === 'number'
+    ? body.total_duration_minutes
+    : Number.NaN;
+  const stops = body.stops;
 
   const departure = parseDateUtc(departureDate);
   if (!departure) {
     throw new ApiError('INVALID_DATE', 'departure_date must use a valid YYYY-MM-DD date.', 400);
   }
-  if (!Number.isFinite(currentPrice) || currentPrice <= 0 || currentPrice > 1_000_000) {
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
     throw new ApiError('INVALID_PRICE', 'current_price must be a positive number.', 400);
+  }
+  if (currentPrice < 40 || currentPrice > 5_000) {
+    throw new ApiError('UNSUPPORTED_PRICE_RANGE', 'The V2 prototype supports displayed prices from USD 40 to 5000.', 422);
+  }
+  if (!Number.isInteger(totalDurationMinutes) || totalDurationMinutes <= 0) {
+    throw new ApiError('INVALID_DURATION', 'total_duration_minutes must be a positive integer.', 400);
+  }
+  if (totalDurationMinutes < 45 || totalDurationMinutes > 1_800) {
+    throw new ApiError('UNSUPPORTED_DURATION_RANGE', 'The V2 prototype supports durations from 45 to 1800 minutes.', 422);
+  }
+  if (!Number.isInteger(stops) || stops < 0) {
+    throw new ApiError('INVALID_STOPS', 'stops must be a non-negative integer.', 400);
+  }
+  if (stops > 3) {
+    throw new ApiError('UNSUPPORTED_STOPS', 'The V2 prototype supports itineraries with up to 3 stops.', 422);
   }
   if (!/^[A-Z]{3}$/.test(currency)) {
     throw new ApiError('INVALID_CURRENCY', 'currency must be a three-letter ISO currency code.', 400);
@@ -65,17 +76,17 @@ export const validateMlPredictionInput = (body, now = new Date()) => {
   if (daysBeforeDeparture > MAX_DAYS_BEFORE_DEPARTURE) {
     throw new ApiError(
       'UNSUPPORTED_DATE_RANGE',
-      `The experimental model supports departures up to ${MAX_DAYS_BEFORE_DEPARTURE} days away.`,
+      `The V2 prototype supports departures up to ${MAX_DAYS_BEFORE_DEPARTURE} days away.`,
       422
     );
   }
 
   return {
-    route,
-    airline,
     departure_date: departureDate,
     days_before_departure: daysBeforeDeparture,
     current_price: currentPrice,
+    total_duration_minutes: totalDurationMinutes,
+    stops,
     currency,
   };
 };

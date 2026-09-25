@@ -551,10 +551,6 @@ const App: React.FC = () => {
 
               {/* Hero Content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sky-100 text-xs font-bold uppercase tracking-widest mb-6 animate-in fade-in slide-in-from-top-4 duration-700">
-                  <Plane size={14} className="text-sky-300 rtl:flip-x" />
-                  <span>Server-Backed Flight Search</span>
-                </div>
                 <h2 className="text-4xl md:text-6xl font-black text-white tracking-tight drop-shadow-2xl mb-4 animate-in fade-in zoom-in-95 duration-700 delay-100">
                   {language === 'ar' ? 'اعثر على مغامرتك القادمة' : 'Find Your Next Adventure'}
                 </h2>
@@ -1218,9 +1214,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, initialMode, onClose, onL
             </p>
           </div>
 
-          <div className="mb-6 rounded-xl border border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-950/30 p-3 text-xs leading-relaxed text-sky-800 dark:text-sky-300">
-            This creates a SkyWings application account. Airline reservations, tickets, and payments remain demo-only and are not created by signing in.
-          </div>
+          <p className="mb-4 text-center text-[11px] leading-4 text-slate-500 dark:text-slate-400">
+            SkyWings account · Flight booking and payments remain demo-only.
+          </p>
 
           {/* Form */}
           <form onSubmit={handleEmailAuth} className="space-y-4">

@@ -1,81 +1,79 @@
-# Experimental ML Flight Price Prototype
+# Experimental ML Price Prediction V2
 
-This Flask service runs the checked-in scikit-learn price-prediction prototype.
-It is called by the SkyWings Express API; normal browser traffic must not call
-Flask directly.
+This local Flask service runs an experimental model trained entirely on
+deterministic synthetic data. It demonstrates an ML integration pipeline; it is
+not a validated real-world airfare forecast. Live flight search remains separate.
 
-## Important limitations
+## V2 design
 
-- The model was trained entirely on 10,000 generated synthetic records.
-- Its metrics are synthetic-data evaluation metrics only and do not demonstrate
-  accuracy on real airline prices.
-- It is not a validated real-world fare forecast.
-- It supports only the explicitly mapped routes and airlines represented in the
-  synthetic training data, departure dates up to 120 days away, and USD prices.
-- Flight search itself is separate and continues to use live third-party provider
-  data. A live flight result does not make its experimental ML output live or validated.
+V2 predicts a synthetic future-price percentage change from:
 
-## Saved model
+1. current displayed USD price
+2. days before departure
+3. provider total duration in minutes
+4. provider stop count
+5. sine of departure month
+6. cosine of departure month
 
-Three regressors were evaluated with a random 80/20 split of the synthetic data:
+Routes and airlines are not model features and never control support. There is no
+random inference adjustment, confidence percentage, or booking recommendation.
+The displayed predicted price equals current price multiplied by one plus the
+predicted percentage change.
 
-| Model | MAE | RMSE | R² |
-| --- | ---: | ---: | ---: |
-| Linear Regression | 30.47 | 42.01 | 0.9867 |
-| Random Forest | 18.10 | 26.78 | 0.9946 |
-| Gradient Boosting | 17.29 | 25.41 | 0.9951 |
+## Synthetic training assumptions
 
-Gradient Boosting had the highest synthetic test R² and is stored in
-`best_model.pkl`. Phase 3 does not retrain or replace this artifact.
+`data_generator.py` creates 12,000 records with seed 42. Its authored simulation
+assumes a smooth expected upward drift from exactly 0% at a zero-day horizon to
+4% at 365 days. Month contributes a cyclical -2 to +2 points, duration has a
+small bounded effect, each stop subtracts 0.6 points, displayed price has a
+small dampening effect around USD 500, and seeded Gaussian noise has mean 0 and
+standard deviation 1.5 points. No direction percentages are forced. These are
+declared simulation rules—not findings discovered from airline markets.
+
+Inference rounds the model percentage to one decimal first. That canonical
+value is used for the displayed percentage, predicted-price calculation, and
+Increase/Stable/Decrease classification at the +/-0.5% thresholds.
+
+Training compares a zero-change baseline, Linear Regression, Random Forest, and
+Gradient Boosting using separate training, validation, and test sets. A
+multi-stop, long-duration, June-August combination is excluded from normal
+splits as a generalization holdout. All metrics in `model_metadata.json` are
+synthetic-data evaluation metrics only.
 
 ## Local development
 
-From the repository root in PowerShell, start Flask with the isolated environment:
+From the repository root:
 
 ```powershell
+.\ml-price-predictor\.venv\Scripts\python.exe ml-price-predictor/train_models.py
 .\ml-price-predictor\.venv\Scripts\python.exe ml-price-predictor/app.py
 ```
 
-The local `.venv` uses Python 3.12 and the exact direct dependency versions in
-`requirements.txt`, including scikit-learn 1.3.2 (the saved model's version).
-The old `venv` points to a removed Python 3.11 installation and is not used.
-To recreate `.venv` on another machine, use a compatible Python 3.11 or 3.12:
+In separate terminals, run `npm run server` and `npm run dev`. The browser calls
+`POST /api/ml/price-prediction`; Express validates input, calculates
+`days_before_departure`, and calls Flask at `127.0.0.1:5000`. The model remains
+on-demand from each flight's **Price Prediction** panel.
 
-```powershell
-py -3.12 -m venv ml-price-predictor/.venv
-.\ml-price-predictor\.venv\Scripts\python.exe -m pip install -r ml-price-predictor/requirements.txt
-```
+## Constraints
 
-In two additional terminals at the repository root, run `npm run server` and
-`npm run dev`. Use separate terminals on Windows, not the legacy `dev:all` script.
-Health check: `http://127.0.0.1:5000/health` should report `model_loaded: true`.
+- Currency: USD
+- Displayed price: USD 40–5,000
+- Departure horizon: 0–365 days
+- Provider duration: 45–1,800 minutes
+- Stops: 0–3
 
-In a flight's analysis panel, select **Run Experimental ML Prototype** to request
-an inference. Searching and opening general analysis do not request ML predictions.
-Identical inputs reuse pending/completed requests for the component lifetime;
-loading, unsupported, unavailable, and result states are displayed separately.
-Price Analysis and Booking Timing still run automatically.
-
-The service listens on `127.0.0.1:5000`. Start Express separately; the frontend
-calls `POST /api/ml/price-prediction`, and Express validates the browser request,
-calculates `days_before_departure`, and forwards the normalized payload to Flask.
-
-## Flask request contract
-
-`POST /predict-flight-price`
+## Flask request
 
 ```json
 {
-  "route": "JFK-LHR",
-  "airline": "British Airways",
   "departure_date": "2026-11-15",
-  "days_before_departure": 52,
+  "days_before_departure": 51,
   "current_price": 650,
+  "total_duration_minutes": 435,
+  "stops": 1,
   "currency": "USD"
 }
 ```
 
-The date and `days_before_departure` values must agree at request time. Successful
-responses contain the model's unadjusted inference, a direction calculated from
-that inference, and neutral experimental wording. They do not contain a confidence
-percentage or booking recommendation.
+The Flask service is localhost-only, loads model paths independently of the
+current working directory, and returns sanitized structured errors.

@@ -13,16 +13,16 @@ class FlightPricePredictor:
     def __init__(self, base_url='http://localhost:5000'):
         self.base_url = base_url
     
-    def predict_price(self, route, airline, departure_date, current_price, days_before, currency='USD'):
+    def predict_price(self, departure_date, current_price, days_before, total_duration_minutes, stops, currency='USD'):
         """
         Get price prediction for a flight
         
         Args:
-            route (str): Route code (e.g., 'NYC-LON')
-            airline (str): Airline name (e.g., 'Emirates')
             departure_date (str): Departure date in YYYY-MM-DD format
             current_price (float): Current ticket price
             days_before (int): Days before departure
+            total_duration_minutes (int): Provider total flight duration
+            stops (int): Provider stop count
             
         Returns:
             dict: Prediction results
@@ -31,11 +31,11 @@ class FlightPricePredictor:
         endpoint = f"{self.base_url}/predict-flight-price"
         
         payload = {
-            "route": route,
-            "airline": airline,
             "departure_date": departure_date,
             "current_price": current_price,
             "days_before_departure": days_before,
+            "total_duration_minutes": total_duration_minutes,
+            "stops": stops,
             "currency": currency
         }
         
@@ -79,27 +79,27 @@ if __name__ == '__main__':
     # Example predictions
     test_flights = [
         {
-            'route': 'NYC-LON',
-            'airline': 'Emirates',
             'departure_date': (date.today() + timedelta(days=30)).isoformat(),
             'current_price': 650,
             'days_before': 30,
+            'total_duration_minutes': 435,
+            'stops': 0,
             'currency': 'USD'
         },
         {
-            'route': 'DXB-NYC',
-            'airline': 'Qatar',
             'departure_date': (date.today() + timedelta(days=7)).isoformat(),
             'current_price': 900,
             'days_before': 7,
+            'total_duration_minutes': 780,
+            'stops': 1,
             'currency': 'USD'
         },
         {
-            'route': 'LON-PAR',
-            'airline': 'British Airways',
             'departure_date': (date.today() + timedelta(days=60)).isoformat(),
             'current_price': 150,
             'days_before': 60,
+            'total_duration_minutes': 90,
+            'stops': 0,
             'currency': 'USD'
         }
     ]
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     print("="*70)
     
     for i, flight in enumerate(test_flights, 1):
-        print(f"\n{i}. {flight['route']} - {flight['airline']}")
+        print(f"\n{i}. Synthetic V2 example")
         print(f"   Current Price: ${flight['current_price']}")
         print(f"   Days Before: {flight['days_before']}")
         

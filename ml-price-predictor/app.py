@@ -1,74 +1,28 @@
-"""Experimental synthetic-data flight price prediction service."""
+"""Local-only inference service for the synthetic ML Price Prediction V2 model."""
 
 from datetime import datetime, timezone
 from pathlib import Path
 import math
 import re
-
-from flask import Flask, jsonify, request
 import joblib
 import numpy as np
-
+import pandas as pd
+from flask import Flask, jsonify, request
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "best_model.pkl"
 METADATA_PATH = BASE_DIR / "model_metadata.json"
-MAX_DAYS_BEFORE_DEPARTURE = 120
+FEATURES = [
+    "current_price", "days_before_departure", "total_duration_minutes",
+    "stops", "departure_month_sin", "departure_month_cos",
+]
+MAX_DAYS = 365
+MIN_PRICE, MAX_PRICE = 40, 5_000
+MIN_DURATION, MAX_DURATION = 45, 1_800
+MAX_STOPS = 3
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024
-
-# The model was trained with these exact ordinal category values.
-ROUTES = {
-    "NYC-LON": 0, "LON-PAR": 1, "DXB-NYC": 2, "TYO-SIN": 3,
-    "PAR-ROM": 4, "BER-MAD": 5, "LAX-TYO": 6, "SIN-BKK": 7,
-    "DOH-LON": 8, "IST-DXB": 9, "NYC-LAX": 10, "LON-DXB": 11,
-    "PAR-NYC": 12, "BKK-SIN": 13, "ROM-BER": 14,
-}
-
-AIRLINES = {
-    "Emirates": 0, "Qatar": 1, "Singapore": 2, "Lufthansa": 3,
-    "British Airways": 4, "Air France": 5, "Turkish": 6, "Etihad": 7,
-    "Ryanair": 8, "EasyJet": 9, "Spirit": 10, "Delta": 11,
-    "United": 12, "American": 13,
-}
-
-# Explicit airport-to-metropolitan mappings represented by the training routes.
-AIRPORT_TO_MODEL_CODE = {
-    "JFK": "NYC", "LGA": "NYC", "EWR": "NYC", "NYC": "NYC",
-    "LHR": "LON", "LGW": "LON", "STN": "LON", "LTN": "LON",
-    "LCY": "LON", "SEN": "LON", "LON": "LON",
-    "CDG": "PAR", "ORY": "PAR", "BVA": "PAR", "PAR": "PAR",
-    "HND": "TYO", "NRT": "TYO", "TYO": "TYO",
-    "FCO": "ROM", "CIA": "ROM", "ROM": "ROM",
-    "DXB": "DXB", "BER": "BER", "MAD": "MAD", "LAX": "LAX",
-    "SIN": "SIN", "BKK": "BKK", "DOH": "DOH", "IST": "IST",
-}
-
-AIRLINE_ALIASES = {
-    "emirates": "Emirates",
-    "qatar": "Qatar",
-    "qatar airways": "Qatar",
-    "singapore": "Singapore",
-    "singapore airlines": "Singapore",
-    "lufthansa": "Lufthansa",
-    "british airways": "British Airways",
-    "air france": "Air France",
-    "turkish": "Turkish",
-    "turkish airlines": "Turkish",
-    "etihad": "Etihad",
-    "etihad airways": "Etihad",
-    "ryanair": "Ryanair",
-    "easyjet": "EasyJet",
-    "spirit": "Spirit",
-    "spirit airlines": "Spirit",
-    "delta": "Delta",
-    "delta air lines": "Delta",
-    "united": "United",
-    "united airlines": "United",
-    "american": "American",
-    "american airlines": "American",
-}
 
 
 def error_response(code, message, status):
@@ -76,7 +30,6 @@ def error_response(code, message, status):
 
 
 def load_model():
-    """Load the checked-in model artifact independently of the process cwd."""
     if not MODEL_PATH.is_file():
         raise FileNotFoundError("Model artifact is unavailable")
     return joblib.load(MODEL_PATH)
@@ -99,189 +52,159 @@ def parse_date(value):
         return None
 
 
-def get_season(departure_date):
-    if departure_date.month in (12, 1, 2):
-        return 1
-    if departure_date.month in (3, 4, 5):
-        return 2
-    if departure_date.month in (6, 7, 8):
-        return 3
-    return 4
-
-
-def estimate_demand(season, route):
-    demand = 4 if season == 3 else 2 if season == 1 else 3
-    if route in {"NYC-LON", "DXB-NYC", "LON-PAR"}:
-        demand = min(5, demand + 1)
-    return demand
-
-
-def normalize_route(route):
-    if not isinstance(route, str) or not re.fullmatch(r"[A-Za-z]{3}-[A-Za-z]{3}", route.strip()):
+def finite_number(value):
+    if isinstance(value, bool):
         return None
-    origin, destination = route.strip().upper().split("-")
-    model_origin = AIRPORT_TO_MODEL_CODE.get(origin)
-    model_destination = AIRPORT_TO_MODEL_CODE.get(destination)
-    if not model_origin or not model_destination:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
         return None
-    normalized = f"{model_origin}-{model_destination}"
-    return normalized if normalized in ROUTES else None
+    return parsed if math.isfinite(parsed) else None
 
 
-def normalize_airline(airline):
-    if not isinstance(airline, str):
-        return None
-    normalized_input = " ".join(airline.strip().split()).casefold()
-    return AIRLINE_ALIASES.get(normalized_input)
-
-
-def validate_prediction_request(data):
+def validate_request(data):
     if not isinstance(data, dict):
         return None, ("INVALID_JSON", "Request body must contain a JSON object.", 400)
-
-    required_fields = {
-        "route", "airline", "departure_date", "days_before_departure",
-        "current_price", "currency",
+    required = {
+        "departure_date", "days_before_departure", "current_price", "currency",
+        "total_duration_minutes", "stops",
     }
-    missing = sorted(field for field in required_fields if field not in data)
+    missing = sorted(field for field in required if field not in data)
     if missing:
         return None, ("INVALID_REQUEST", f"Missing required field: {missing[0]}", 400)
-
-    route = normalize_route(data["route"])
-    if not route:
-        return None, (
-            "UNSUPPORTED_ROUTE",
-            "This route is not supported by the experimental model.",
-            422,
-        )
-
-    airline = normalize_airline(data["airline"])
-    if not airline:
-        return None, (
-            "UNSUPPORTED_AIRLINE",
-            "This airline is not supported by the experimental model.",
-            422,
-        )
 
     departure_date = parse_date(data["departure_date"])
     if not departure_date:
         return None, ("INVALID_DATE", "departure_date must be a valid YYYY-MM-DD date.", 400)
 
-    days_value = data["days_before_departure"]
-    if isinstance(days_value, bool) or not isinstance(days_value, int):
-        return None, (
-            "INVALID_DAYS_BEFORE_DEPARTURE",
-            "days_before_departure must be an integer.",
-            400,
-        )
-
+    days = data["days_before_departure"]
+    if isinstance(days, bool) or not isinstance(days, int):
+        return None, ("INVALID_DAYS_BEFORE_DEPARTURE", "days_before_departure must be an integer.", 400)
     expected_days = (departure_date - datetime.now(timezone.utc).date()).days
-    if days_value < 0 or days_value > MAX_DAYS_BEFORE_DEPARTURE or days_value != expected_days:
+    if days != expected_days or days < 0:
         return None, (
             "INVALID_DAYS_BEFORE_DEPARTURE",
-            "days_before_departure is outside the supported range or does not match departure_date.",
+            "days_before_departure must match the future departure_date.",
             400,
         )
+    if days > MAX_DAYS:
+        return None, (
+            "UNSUPPORTED_DATE_RANGE",
+            f"The V2 prototype supports departures up to {MAX_DAYS} days away.",
+            422,
+        )
 
-    price_value = data["current_price"]
-    if isinstance(price_value, bool):
+    price = finite_number(data["current_price"])
+    if price is None or price <= 0:
         return None, ("INVALID_PRICE", "current_price must be a positive number.", 400)
-    try:
-        current_price = float(price_value)
-    except (TypeError, ValueError):
-        return None, ("INVALID_PRICE", "current_price must be a positive number.", 400)
-    if not math.isfinite(current_price) or current_price <= 0 or current_price > 1_000_000:
-        return None, ("INVALID_PRICE", "current_price must be a positive number.", 400)
+    if not MIN_PRICE <= price <= MAX_PRICE:
+        return None, (
+            "UNSUPPORTED_PRICE_RANGE",
+            f"The V2 prototype supports displayed prices from USD {MIN_PRICE} to {MAX_PRICE}.",
+            422,
+        )
+
+    duration = finite_number(data["total_duration_minutes"])
+    if duration is None or not duration.is_integer() or duration <= 0:
+        return None, (
+            "INVALID_DURATION",
+            "total_duration_minutes must be a positive integer.",
+            400,
+        )
+    duration = int(duration)
+    if not MIN_DURATION <= duration <= MAX_DURATION:
+        return None, (
+            "UNSUPPORTED_DURATION_RANGE",
+            f"The V2 prototype supports durations from {MIN_DURATION} to {MAX_DURATION} minutes.",
+            422,
+        )
+
+    stops = data["stops"]
+    if isinstance(stops, bool) or not isinstance(stops, int) or stops < 0:
+        return None, ("INVALID_STOPS", "stops must be a non-negative integer.", 400)
+    if stops > MAX_STOPS:
+        return None, (
+            "UNSUPPORTED_STOPS",
+            f"The V2 prototype supports itineraries with up to {MAX_STOPS} stops.",
+            422,
+        )
 
     currency = data["currency"]
     if not isinstance(currency, str) or currency.strip().upper() != "USD":
         return None, (
             "UNSUPPORTED_CURRENCY",
-            "The experimental model currently supports USD prices only.",
+            "The experimental V2 model currently supports USD prices only.",
             422,
         )
 
+    angle = 2 * np.pi * (departure_date.month - 1) / 12
     return {
-        "route": route,
-        "airline": airline,
-        "departure_date": departure_date,
-        "days_before_departure": days_value,
-        "current_price": current_price,
+        "current_price": price,
+        "days_before_departure": days,
+        "total_duration_minutes": duration,
+        "stops": stops,
+        "departure_month_sin": float(np.sin(angle)),
+        "departure_month_cos": float(np.cos(angle)),
         "currency": "USD",
     }, None
 
 
-def summarize_output(trend, price_change_percent):
-    magnitude = abs(price_change_percent)
-    if trend == "increase":
-        return f"The synthetic-data model output is {magnitude:.1f}% above the current displayed price."
-    if trend == "decrease":
-        return f"The synthetic-data model output is {magnitude:.1f}% below the current displayed price."
-    return "The synthetic-data model output is within 0.5% of the current displayed price."
+def summary(direction, difference):
+    magnitude = abs(difference)
+    if direction == "increase":
+        return f"The synthetic V2 model output is {magnitude:.1f}% above the current displayed price."
+    if direction == "decrease":
+        return f"The synthetic V2 model output is {magnitude:.1f}% below the current displayed price."
+    return "The synthetic V2 model output is within 0.5% of the current displayed price."
 
 
 @app.errorhandler(413)
-def request_too_large(_error):
+def too_large(_error):
     return error_response("REQUEST_TOO_LARGE", "Request body is too large.", 413)
 
 
 @app.route("/health", methods=["GET"])
-def health_check():
+def health():
     status = "ok" if model is not None else "degraded"
-    return jsonify({"status": status, "model_loaded": model is not None}), 200 if model is not None else 503
+    return jsonify({"status": status, "model_loaded": model is not None, "model_version": "V2"}), 200 if model is not None else 503
 
 
 @app.route("/predict-flight-price", methods=["POST"])
-def predict_flight_price():
+def predict():
     if model is None:
         return error_response("MODEL_UNAVAILABLE", "The experimental model is unavailable.", 503)
-
-    data = request.get_json(silent=True)
-    validated, validation_error = validate_prediction_request(data)
+    validated, validation_error = validate_request(request.get_json(silent=True))
     if validation_error:
         return error_response(*validation_error)
 
-    season = get_season(validated["departure_date"])
-    demand_level = estimate_demand(season, validated["route"])
-    features = np.array([[
-        ROUTES[validated["route"]],
-        AIRLINES[validated["airline"]],
-        validated["days_before_departure"],
-        season,
-        demand_level,
-        validated["current_price"],
-    ]])
-
+    feature_frame = pd.DataFrame([{name: validated[name] for name in FEATURES}], columns=FEATURES)
     try:
-        predicted_price = float(model.predict(features)[0])
+        change = float(model.predict(feature_frame)[0])
     except Exception:
         return error_response("PREDICTION_FAILED", "The experimental model could not produce a result.", 500)
-
-    if not math.isfinite(predicted_price) or predicted_price <= 0:
+    if not math.isfinite(change):
         return error_response("PREDICTION_FAILED", "The experimental model could not produce a result.", 500)
 
-    price_change_percent = (
-        (predicted_price - validated["current_price"]) / validated["current_price"]
-    ) * 100
-    if price_change_percent > 0.5:
-        trend = "increase"
-    elif price_change_percent < -0.5:
-        trend = "decrease"
-    else:
-        trend = "stable"
+    # One decimal is the canonical API/UI value. Classification and displayed
+    # predicted price use this same value, including at the +/-0.5 thresholds.
+    canonical_change = round(change, 1)
+    ratio = 1 + canonical_change / 100
+    predicted_price = validated["current_price"] * ratio
+    if not math.isfinite(predicted_price) or ratio <= 0:
+        return error_response("PREDICTION_FAILED", "The experimental model could not produce a result.", 500)
 
+    direction = "increase" if canonical_change > 0.5 else "decrease" if canonical_change < -0.5 else "stable"
     return jsonify({
         "predicted_price": round(predicted_price, 2),
-        "trend": trend,
-        "price_change_percent": round(price_change_percent, 2),
-        "summary": summarize_output(trend, price_change_percent),
+        "trend": direction,
+        "price_change_percent": canonical_change,
+        "summary": summary(direction, canonical_change),
         "currency": validated["currency"],
-        "model_output_label": "Experimental model output",
+        "model_output_label": "Experimental synthetic V2 model output",
         "model_used": type(model).__name__,
-        "normalized_route": validated["route"],
-        "normalized_airline": validated["airline"],
+        "model_version": "V2",
         "days_analyzed": validated["days_before_departure"],
-    }), 200
+    })
 
 
 @app.route("/models-info", methods=["GET"])
