@@ -64,10 +64,17 @@ export interface PredictionAnalysis {
 export interface MLPrediction {
   predictedPrice: number;
   trend: 'increase' | 'decrease' | 'stable';
-  confidenceScore: number;
-  priceChangePercent?: number;
-  recommendation: string;
+  priceChangePercent: number;
+  summary: string;
+  currency: 'USD';
+  outputLabel: string;
 }
+
+export type MLPredictionState =
+  | { status: 'loading' }
+  | { status: 'result'; prediction: MLPrediction }
+  | { status: 'unsupported'; code: string; message: string }
+  | { status: 'unavailable'; message: string };
 
 export interface RiskAnalysis {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';

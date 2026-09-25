@@ -5,6 +5,7 @@ Demonstrates how to integrate the ML prediction service
 
 import requests
 import json
+from datetime import date, timedelta
 
 class FlightPricePredictor:
     """Client for interacting with ML Flight Price Prediction API"""
@@ -12,7 +13,7 @@ class FlightPricePredictor:
     def __init__(self, base_url='http://localhost:5000'):
         self.base_url = base_url
     
-    def predict_price(self, route, airline, departure_date, current_price, days_before):
+    def predict_price(self, route, airline, departure_date, current_price, days_before, currency='USD'):
         """
         Get price prediction for a flight
         
@@ -34,7 +35,8 @@ class FlightPricePredictor:
             "airline": airline,
             "departure_date": departure_date,
             "current_price": current_price,
-            "days_before_departure": days_before
+            "days_before_departure": days_before,
+            "currency": currency
         }
         
         try:
@@ -79,23 +81,26 @@ if __name__ == '__main__':
         {
             'route': 'NYC-LON',
             'airline': 'Emirates',
-            'departure_date': '2024-12-15',
+            'departure_date': (date.today() + timedelta(days=30)).isoformat(),
             'current_price': 650,
-            'days_before': 30
+            'days_before': 30,
+            'currency': 'USD'
         },
         {
             'route': 'DXB-NYC',
             'airline': 'Qatar',
-            'departure_date': '2024-11-20',
+            'departure_date': (date.today() + timedelta(days=7)).isoformat(),
             'current_price': 900,
-            'days_before': 7
+            'days_before': 7,
+            'currency': 'USD'
         },
         {
             'route': 'LON-PAR',
             'airline': 'British Airways',
-            'departure_date': '2025-01-10',
+            'departure_date': (date.today() + timedelta(days=60)).isoformat(),
             'current_price': 150,
-            'days_before': 60
+            'days_before': 60,
+            'currency': 'USD'
         }
     ]
     
@@ -113,8 +118,8 @@ if __name__ == '__main__':
         if result:
             print(f"   ✓ Predicted Price: ${result['predicted_price']}")
             print(f"   ✓ Trend: {result['trend'].upper()}")
-            print(f"   ✓ Confidence: {result['confidence_score']*100:.0f}%")
-            print(f"   ✓ Recommendation: {result['recommendation']}")
+            print(f"   ✓ Model Difference: {result['price_change_percent']:.1f}%")
+            print(f"   ✓ Experimental Summary: {result['summary']}")
         else:
             print("   ✗ Could not get prediction")
     

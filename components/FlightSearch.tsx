@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, Calendar, MapPin, TrendingUp, AlertTriangle, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CreditCard, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
-import { Flight, PredictionAnalysis, RiskAnalysis, MLPrediction } from '../types';
+import { Flight, PredictionAnalysis, RiskAnalysis, MLPredictionState } from '../types';
 import { analyzeFlightPrice, analyzeTripRisk, findRealFlights } from '../services/geminiService';
 import { getMLPricePrediction } from '../services/mlPredictionService';
 import { analyzeBookingTiming } from '../services/bookingTimingService';
@@ -312,12 +312,16 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [predictions, setPredictions] = useState<Record<string, PredictionAnalysis>>({});
   const [risks, setRisks] = useState<Record<string, RiskAnalysis>>({});
-  const [mlPredictions, setMlPredictions] = useState<Record<string, MLPrediction>>({});
+  const [mlPredictionStates, setMlPredictionStates] = useState<Record<string, MLPredictionState>>({});
+  const mlRequests = useRef(new Map<string, Promise<MLPredictionState>>());
+  const searchGeneration = useRef(0);
+
+  useEffect(() => () => { searchGeneration.current += 1; }, []);
   const [bookingTimings, setBookingTimings] = useState<Record<string, { optimalWindow: string; currentDaysBefore: number; recommendation: string; urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH' }>>({});
 
   // Toggle States for Expandable Sections
   const [expandedAmenities, setExpandedAmenities] = useState<Record<string, boolean>>({});
-  const [expandedAI, setExpandedAI] = useState<Record<string, boolean>>({});
+  const [expandedML, setExpandedML] = useState<Record<string, boolean>>({});
   const [expandedPath, setExpandedPath] = useState<Record<string, boolean>>({});
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({}); // Unified flight details
 
@@ -345,11 +349,12 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    searchGeneration.current += 1;
     setSearching(true);
     setResults([]);
     setPredictions({});
     setRisks({});
-    setMlPredictions({});
+    setMlPredictionStates({});
     setBookingTimings({});
     setExpandedId(null);
     setSearchError(null);
@@ -376,10 +381,10 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
       if (realFlights && realFlights.length > 0) {
         setResults(realFlights);
-        // Auto-run AI analysis for all flights after a short delay
+        // Auto-run the local price, risk, and booking-timing analyses for all flights.
         // Pass the full array so each flight is compared against all others
         setTimeout(() => {
-          realFlights.forEach(flight => runAIAnalysis(flight, realFlights));
+          realFlights.forEach(flight => runLocalAnalysis(flight, realFlights));
         }, 500);
       } else {
         setSearchError('No verified live flight offers were returned for this search.');
@@ -392,31 +397,27 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     }
   };
 
-  const runAIAnalysis = async (flight: Flight, allFlights?: Flight[]) => {
+  const runLocalAnalysis = async (flight: Flight, allFlights?: Flight[]) => {
     setAnalyzingId(flight.id);
 
     try {
       // Use provided flights array or fallback to current results from state
       const flightsToUse = allFlights || results;
 
-      console.log('[FlightSearch] Running AI analysis for flight:', flight.id);
+      console.log('[FlightSearch] Running local analysis for flight:', flight.id);
       console.log('[FlightSearch] Total flights in search results:', flightsToUse.length);
-      console.log('[FlightSearch] Passing', flightsToUse.length, 'flights to Price Intelligence engine');
+      console.log('[FlightSearch] Passing', flightsToUse.length, 'flights to price comparison engine');
 
-      const [priceAnalysis, riskAnalysis, mlPrediction, bookingTiming] = await Promise.all([
+      const [priceAnalysis, riskAnalysis, bookingTiming] = await Promise.all([
         analyzeFlightPrice(flight, flightsToUse),
         analyzeTripRisk(flight.destination, flight.departureTime || 'Upcoming'),
-        getMLPricePrediction(flight),
         analyzeBookingTiming(flight)
       ]);
       setPredictions(prev => ({ ...prev, [flight.id]: priceAnalysis }));
       setRisks(prev => ({ ...prev, [flight.id]: riskAnalysis }));
-      if (mlPrediction) {
-        setMlPredictions(prev => ({ ...prev, [flight.id]: mlPrediction }));
-      }
       setBookingTimings(prev => ({ ...prev, [flight.id]: bookingTiming }));
     } catch (error: any) {
-      console.error('AI Analysis error:', error);
+      console.error('Local analysis error:', error);
       // Handle rate limit (429) gracefully
       if (error?.message?.includes('429') || error?.status === 429) {
         // Set a pending state instead of showing error
@@ -432,6 +433,26 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
       }
     } finally {
       setAnalyzingId(null);
+    }
+  };
+
+  const requestMLPrediction = async (flight: Flight) => {
+    // Cache both pending and completed requests by inputs, not reusable offer IDs.
+    const key = JSON.stringify([flight.origin, flight.destination, flight.airline,
+      flight.departureTime, flight.price, flight.currency]);
+    const generation = searchGeneration.current;
+    setMlPredictionStates(prev => ({ ...prev, [flight.id]: { status: 'loading' } }));
+    let pending = mlRequests.current.get(key);
+    if (!pending) {
+      pending = getMLPricePrediction(flight).catch((): MLPredictionState => ({
+        status: 'unavailable', message: 'The experimental ML service is temporarily unavailable.'
+      }));
+      mlRequests.current.set(key, pending);
+    }
+    const state = await pending;
+    // A previous search must not populate a new offer with the same ID.
+    if (generation === searchGeneration.current) {
+      setMlPredictionStates(prev => ({ ...prev, [flight.id]: state }));
     }
   };
 
@@ -469,8 +490,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     setExpandedAmenities(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const toggleAIAnalysis = (id: string) => {
-    setExpandedAI(prev => ({ ...prev, [id]: !prev[id] }));
+  const toggleMLPrediction = (id: string) => {
+    setExpandedML(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const toggleFlightPath = (id: string) => {
@@ -487,7 +508,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
   // Helper function to check if any detail section is expanded for a flight
   const isAnySectionExpanded = (flightId: string): boolean => {
-    return !!(expandedDetails[flightId] || expandedAI[flightId]);
+    return !!(expandedDetails[flightId] || expandedML[flightId]);
   };
 
   // Flight Comparison Handlers
@@ -859,6 +880,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
         {filteredAndSortedResults.map(flight => {
           const pred = predictions[flight.id];
           const risk = risks[flight.id];
+          const mlState = mlPredictionStates[flight.id];
           const isAnalyzing = analyzingId === flight.id;
           const hasVerifiedAmenities = Boolean(
             (typeof flight.amenities?.baggage === 'string' && flight.amenities.baggage.trim()) ||
@@ -973,24 +995,14 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
                       {/* Toggle Buttons Row */}
                       <div className="flex flex-col gap-2">
-                        {/* AI Analysis Button */}
-                        {!pred ? (
-                          <button
-                            onClick={() => runAIAnalysis(flight, results)}
-                            disabled={isAnalyzing}
-                            className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                          >
-                            {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <TrendingUp size={16} />}
-                            AI Info
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => toggleAIAnalysis(flight.id)}
-                            className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-all flex items-center justify-center gap-2"
-                          >
-                            {expandedAI[flight.id] ? 'Hide AI' : 'AI Info'}
-                          </button>
-                        )}
+                        {/* Experimental ML toggle */}
+                        <button
+                          onClick={() => toggleMLPrediction(flight.id)}
+                          className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-all flex items-center justify-center gap-2"
+                        >
+                          <TrendingUp size={16} />
+                          {expandedML[flight.id] ? 'Hide Price Prediction' : 'Price Prediction'}
+                        </button>
 
                         {/* Flight Details Button - Opens Both Amenities & Flight Path */}
                         <button
@@ -1007,23 +1019,22 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
               {/* Expandable Sections */}
 
-              {/* AI Analysis Panel */}
-              {expandedAI[flight.id] && (pred || risk) && (
-                <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-1">Local Demo Analysis</h4>
-                  <p className="text-xs text-amber-700 dark:text-amber-400 mb-4">Heuristic output only. It may use a simulated price baseline and is not verified market guidance.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Rule-based/statistical analysis belongs to Flight Details. */}
+              {expandedDetails[flight.id] && (pred || risk) && (
+                <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4 md:p-5 animate-in fade-in slide-in-from-top-2">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-3">Flight Details — Price &amp; Risk</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
                     {pred && (
-                      <div className="p-4 rounded-xl border-2 bg-white dark:bg-slate-900 border-emerald-200/60 dark:border-emerald-800/60">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-300">
-                            <TrendingUp size={18} />
+                      <div className="p-3 rounded-xl border bg-white dark:bg-slate-900 border-emerald-200/70 dark:border-emerald-800/70">
+                        <div className="flex items-start gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-300 shrink-0">
+                            <TrendingUp size={16} />
                           </div>
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <h5 className="font-bold text-slate-900 dark:text-white text-sm">Price Intelligence</h5>
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <h5 className="font-bold text-slate-900 dark:text-white text-sm">Price Analysis</h5>
                               <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${
+                                className={`max-w-full text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide text-right ${
                                   // Use detailed classification if available, otherwise fallback to UI category
                                   pred.classification === 'GREAT_DEAL'
                                     ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
@@ -1042,13 +1053,16 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
                                   }`}
                               >
-                                {pred.classification || pred.priceCategory}
+                                Rule-based · {(pred.classification || pred.priceCategory).replace(/_/g, ' ')}
                               </span>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                              {pred.explanation}
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 mt-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-1.5 pt-0.5">
+                              <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                                <div className="font-semibold">Current flight price</div>
+                                <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
+                                  {formatFlightPrice(flight)}
+                                </div>
+                              </div>
                               <div className="text-[11px] text-slate-600 dark:text-slate-300">
                                 <div className="font-semibold">Current result-set average</div>
                                 <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
@@ -1056,29 +1070,28 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                 </div>
                               </div>
                               <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                                <div className="font-semibold">Price vs shown results</div>
+                                <div className="font-semibold">Difference from average</div>
                                 <div className="font-mono text-xs text-slate-800 dark:text-slate-100">
                                   {pred.priceDifferencePercent > 0 ? '+' : ''}
                                   {pred.priceDifferencePercent}%
                                 </div>
                               </div>
                             </div>
-                            {/* Score and recommendation removed - handled by ML Prediction instead */}
                           </div>
                         </div>
                       </div>
                     )}
 
                     {risk && (
-                      <div className="p-4 rounded-xl border-2 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                            <AlertTriangle size={18} />
+                      <div className="p-3 rounded-xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                        <div className="flex items-start gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 shrink-0">
+                            <AlertTriangle size={16} />
                           </div>
-                          <div className="flex-1 space-y-2">
-                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Demo Travel Risk Heuristic</h5>
-                            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Static rule-based sample only — not real-time safety, weather, or government advice.</p>
-                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Travel Risk Estimate</h5>
+                            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Rule-based demo — not live safety, weather, or government advice.</p>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
                               <div>
                                 <div className="font-semibold text-slate-600 dark:text-slate-300">Weather risk</div>
                                 <div className={`capitalize font-medium ${risk.weatherRisk === 'low' ? 'text-emerald-600 dark:text-emerald-400' :
@@ -1125,61 +1138,86 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                                 </div>
                               </div>
                             </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                              {risk.explanation}
-                            </p>
-                            {risk.weatherAlerts && risk.weatherAlerts.length > 0 && (
-                              <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
-                                <AlertTriangle size={10} /> Weather alerts detected
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
 
-                  {/* ML Price Prediction Section */}
-                  {mlPredictions[flight.id] && (
+                </div>
+              )}
+
+              {/* Experimental ML is separate from the local Flight Details analyses. */}
+              {expandedML[flight.id] && (
+                <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide mb-4">Experimental ML Prototype</h4>
+                  {!mlState && (
+                    <div className="text-sm">
+                      <button type="button" onClick={() => void requestMLPrediction(flight)}
+                        className="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                        Run Experimental ML Prototype
+                      </button>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Synthetic-data model output; not a validated real-world fare forecast.
+                      </p>
+                    </div>
+                  )}
+                  {mlState?.status === 'loading' && (
+                    <div className="mt-4 p-4 rounded-xl border bg-white dark:bg-slate-900 border-blue-200/60 dark:border-blue-800/60 text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                      <Loader2 size={16} className="animate-spin text-blue-600" />
+                      Loading experimental model output…
+                    </div>
+                  )}
+                  {mlState?.status === 'unsupported' && (
+                    <div className="mt-4 p-4 rounded-xl border bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                      <h5 className="font-bold text-slate-900 dark:text-white text-sm">Experimental ML unavailable for this flight</h5>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{mlState.message}</p>
+                    </div>
+                  )}
+                  {mlState?.status === 'unavailable' && (
+                    <div className="mt-4 p-4 rounded-xl border bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                      <h5 className="font-bold text-slate-900 dark:text-white text-sm">Experimental ML service unavailable</h5>
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{mlState.message}</p>
+                    </div>
+                  )}
+                  {mlState?.status === 'result' && (
                     <div className="mt-4 p-4 rounded-xl border-2 bg-white dark:bg-slate-900 border-blue-200/60 dark:border-blue-800/60">
                       <div className="flex items-start gap-3">
                         <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300">
                           <TrendingUp size={18} />
                         </div>
                         <div className="flex-1 space-y-2">
-                            <h5 className="font-bold text-slate-900 dark:text-white text-sm">Experimental ML Demo</h5>
-                            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Trained on synthetic data; not a validated live fare forecast.</p>
+                          <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">Synthetic-data model output; not a validated real-world fare forecast.</p>
 
                           {/* Predicted Price */}
                           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            ${mlPredictions[flight.id].predictedPrice}
+                            {formatMoney(mlState.prediction.predictedPrice, mlState.prediction.currency)}
                           </div>
 
-                          {/* Trend & Confidence */}
+                          {/* Trend & difference */}
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
                               <div className="font-semibold text-slate-600 dark:text-slate-300">Price Trend</div>
-                              <div className={`font-bold capitalize flex items-center gap-1 ${mlPredictions[flight.id].trend === 'increase' ? 'text-red-600' :
-                                  mlPredictions[flight.id].trend === 'decrease' ? 'text-emerald-600' :
+                              <div className={`font-bold capitalize flex items-center gap-1 ${mlState.prediction.trend === 'increase' ? 'text-red-600' :
+                                  mlState.prediction.trend === 'decrease' ? 'text-emerald-600' :
                                     'text-amber-600'
                                 }`}>
-                                {mlPredictions[flight.id].trend === 'increase' && '↑'}
-                                {mlPredictions[flight.id].trend === 'decrease' && '↓'}
-                                {mlPredictions[flight.id].trend === 'stable' && '→'}
-                                {mlPredictions[flight.id].trend}
+                                {mlState.prediction.trend === 'increase' && '↑'}
+                                {mlState.prediction.trend === 'decrease' && '↓'}
+                                {mlState.prediction.trend === 'stable' && '→'}
+                                {mlState.prediction.trend}
                               </div>
                             </div>
                             <div>
-                              <div className="font-semibold text-slate-600 dark:text-slate-300">Confidence</div>
+                              <div className="font-semibold text-slate-600 dark:text-slate-300">Model difference</div>
                               <div className="font-mono text-slate-800 dark:text-slate-100">
-                                {(mlPredictions[flight.id].confidenceScore * 100).toFixed(0)}%
+                                {mlState.prediction.priceChangePercent > 0 ? '+' : ''}{mlState.prediction.priceChangePercent.toFixed(1)}%
                               </div>
                             </div>
                           </div>
 
-                          {/* Recommendation */}
                           <p className="text-xs text-slate-600 dark:text-slate-400">
-                            {mlPredictions[flight.id].recommendation}
+                            {mlState.prediction.summary}
                           </p>
                         </div>
                       </div>
@@ -1188,7 +1226,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                 </div>
               )}
 
-              {/* Amenities Panel */}
+              {/* Itinerary, verified provider details, and timeline within Flight Details. */}
               {expandedDetails[flight.id] && (
                 <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-5 md:p-6 animate-in fade-in slide-in-from-top-2">
                   {hasVerifiedAmenities && (

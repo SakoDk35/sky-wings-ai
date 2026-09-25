@@ -3,10 +3,10 @@
 SkyWings uses one privileged backend boundary:
 
 ```text
-React browser -> SkyWings Express API -> SerpApi Google Flights / Gemini
+React browser -> SkyWings Express API -> SerpApi Google Flights / Gemini / Flask ML service
 ```
 
-Provider credentials, SerpApi requests, and Gemini SDK calls remain inside Express.
+Provider credentials, external-provider requests, and ML service calls remain behind Express.
 The browser calls only same-origin `/api/...` routes. Flight inventory is never
 generated or silently replaced when the active provider is unavailable. The
 server-side Amadeus integration is retained for future use but is not active.
@@ -20,6 +20,12 @@ Prerequisite: Node.js.
 3. Start Express with `npm run server`.
 4. In another terminal, start Vite with `npm run dev`.
 
+To enable the optional experimental ML prototype, use the isolated environment
+and startup commands in [the ML README](ml-price-predictor/README.md). Express uses
+`ML_SERVICE_URL` and defaults to `http://127.0.0.1:5000` for local development.
+ML runs only when **Run Experimental ML Prototype** is selected in a flight's
+analysis panel; the other local analyses remain automatic.
+
 Vite proxies `/api` to `http://127.0.0.1:3001` during development. Do not use
 `VITE_` variables for provider secrets and do not add secrets to
 `vite.config.ts`.
@@ -31,6 +37,7 @@ Vite proxies `/api` to `http://127.0.0.1:3001` during development. Do not use
 - `POST /api/ai/travel-plan` — validated itinerary drafts.
 - `POST /api/ai/visa` — general AI guidance with an official-verification warning.
 - `POST /api/ai/packing-list` — validated packing-list output.
+- `POST /api/ml/price-prediction` — validated proxy to the experimental ML prototype.
 - `GET /api/health` — server health.
 
 ## Truthfulness boundaries
@@ -38,6 +45,11 @@ Vite proxies `/api` to `http://127.0.0.1:3001` during development. Do not use
 - Flight results are normalized from SerpApi Google Flights and retain the requested provider currency.
 - No provider failure produces simulated flight inventory.
 - AI output is planning guidance, not a reservation or authoritative immigration advice.
-- Authentication, booking, payment, currency, risk, route fallback, and ML
-  demonstrations remain labeled according to their Phase 1 limitations.
+- Flight search uses live third-party provider data. The separate ML price output
+  is an experimental prototype trained entirely on synthetic data.
+- ML training/test metrics measure performance only on synthetic generated data;
+  the model is not a validated real-world fare forecast and supports only explicit
+  route, airline, date-range, and USD inputs.
+- Authentication, booking, payment, currency, risk, and ML demonstrations remain
+  labeled according to their current limitations.
 - No payment is processed and no ticket or provider booking is created.

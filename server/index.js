@@ -6,6 +6,7 @@ import path from 'path';
 import { logSearch } from './db.js';
 import { ApiError, toErrorResponse } from './apiError.js';
 import { searchSerpApiFlights } from './serpapi.js';
+import { requestMlPrediction, validateMlPredictionInput } from './ml.js';
 import {
   generateChatReply,
   generatePackingItems,
@@ -73,6 +74,11 @@ app.use('/api/ai', createRateLimiter({
   windowMs: 60_000,
   maxRequests: 20,
   code: 'AI_RATE_LIMITED',
+}));
+app.use('/api/ml', createRateLimiter({
+  windowMs: 60_000,
+  maxRequests: 60,
+  code: 'ML_RATE_LIMITED',
 }));
 
 const isValidDate = (value) => {
@@ -243,6 +249,16 @@ app.post('/api/ai/packing-list', async (req, res, next) => {
     const duration = requiredText(req.body?.duration, 'duration', 100);
     const items = await generatePackingItems({ destination, duration });
     return res.json({ data: { items } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/ml/price-prediction', async (req, res, next) => {
+  try {
+    const input = validateMlPredictionInput(req.body);
+    const prediction = await requestMlPrediction(input);
+    return res.json({ data: prediction });
   } catch (error) {
     return next(error);
   }
