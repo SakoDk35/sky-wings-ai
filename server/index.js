@@ -1,10 +1,24 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { randomBytes } from 'crypto';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { logSearch } from './db.js';
+import {
+  createDemoBooking,
+  createUser,
+  findUserWithPasswordByEmail,
+  listDemoBookings,
+  logSearch,
+} from './db.js';
 import { ApiError, toErrorResponse } from './apiError.js';
+import {
+  clearSession,
+  hashPassword,
+  requireAuthentication,
+  startSession,
+  verifyPassword,
+} from './auth.js';
 import { searchSerpApiFlights } from './serpapi.js';
 import { requestMlPrediction, validateMlPredictionInput } from './ml.js';
 import {
@@ -36,6 +50,7 @@ const corsOptions = {
   },
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type'],
+  credentials: true,
 };
 
 app.disable('x-powered-by');
@@ -81,6 +96,17 @@ app.use('/api/ml', createRateLimiter({
   code: 'ML_RATE_LIMITED',
 }));
 
+const signupRateLimiter = createRateLimiter({
+  windowMs: 15 * 60_000,
+  maxRequests: 5,
+  code: 'AUTH_RATE_LIMITED',
+});
+const loginRateLimiter = createRateLimiter({
+  windowMs: 15 * 60_000,
+  maxRequests: 10,
+  code: 'AUTH_RATE_LIMITED',
+});
+
 const isValidDate = (value) => {
   if (typeof value !== 'string' || !DATE_REGEX.test(value)) return false;
   const [year, month, day] = value.split('-').map(Number);
@@ -112,6 +138,79 @@ const optionalText = (value, field, maxLength = 500) => {
     throw new ApiError('INVALID_REQUEST', `${field} must be at most ${maxLength} characters.`, 400);
   }
   return value.trim();
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const normalizeEmail = (value) => {
+  if (typeof value !== 'string') {
+    throw new ApiError('INVALID_REQUEST', 'A valid email address is required.', 400);
+  }
+  const email = value.trim().toLowerCase();
+  if (!email || email.length > 254 || !EMAIL_REGEX.test(email)) {
+    throw new ApiError('INVALID_REQUEST', 'A valid email address is required.', 400);
+  }
+  return email;
+};
+
+const validateSignupInput = (body) => {
+  const name = requiredText(body?.name, 'name', 100);
+  if (name.length < 2) {
+    throw new ApiError('INVALID_REQUEST', 'Name must contain at least 2 characters.', 400);
+  }
+  const email = normalizeEmail(body?.email);
+  const password = body?.password;
+  if (typeof password !== 'string' || password.length < 8 || password.length > 128) {
+    throw new ApiError('INVALID_REQUEST', 'Password must be between 8 and 128 characters.', 400);
+  }
+  return { name, email, password };
+};
+
+const validateLoginInput = (body) => {
+  const email = normalizeEmail(body?.email);
+  const password = body?.password;
+  if (typeof password !== 'string' || password.length < 1 || password.length > 128) {
+    throw new ApiError('INVALID_REQUEST', 'Email and password are required.', 400);
+  }
+  return { email, password };
+};
+
+const validateDemoBookingInput = (body) => {
+  const flight = body?.flight;
+  if (!flight || typeof flight !== 'object' || Array.isArray(flight)) {
+    throw new ApiError('INVALID_REQUEST', 'A flight snapshot is required.', 400);
+  }
+
+  const origin = requiredText(flight.origin, 'origin', 3).toUpperCase();
+  const destination = requiredText(flight.destination, 'destination', 3).toUpperCase();
+  const stops = Number(flight.stops);
+  const price = Number(flight.price);
+  const currency = requiredText(flight.currency, 'currency', 3).toUpperCase();
+  if (!/^[A-Z]{3}$/.test(origin) || !/^[A-Z]{3}$/.test(destination) || origin === destination) {
+    throw new ApiError('INVALID_REQUEST', 'Origin and destination must be different three-letter IATA codes.', 400);
+  }
+  if (!Number.isInteger(stops) || stops < 0 || stops > 20) {
+    throw new ApiError('INVALID_REQUEST', 'Stops must be a non-negative integer.', 400);
+  }
+  if (!Number.isFinite(price) || price <= 0 || price > 10_000_000) {
+    throw new ApiError('INVALID_REQUEST', 'Price must be a positive number.', 400);
+  }
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new ApiError('INVALID_REQUEST', 'Currency must be a three-letter ISO code.', 400);
+  }
+
+  return {
+    airline: requiredText(flight.airline, 'airline', 120),
+    flightNumber: requiredText(flight.flightNumber, 'flightNumber', 40),
+    origin,
+    destination,
+    departureTime: requiredText(flight.departureTime, 'departureTime', 100),
+    arrivalTime: requiredText(flight.arrivalTime, 'arrivalTime', 100),
+    duration: requiredText(flight.duration, 'duration', 100),
+    stops,
+    price,
+    currency,
+  };
 };
 
 const safeLogSearch = (params) => {
@@ -159,6 +258,87 @@ const validateFlightSearch = (query) => {
 
   return { origin, destination, departureDate, returnDate, adults, travelClass };
 };
+
+app.post('/api/auth/signup', signupRateLimiter, async (req, res, next) => {
+  try {
+    const { name, email, password } = validateSignupInput(req.body);
+    const passwordHash = await hashPassword(password);
+    let user;
+    try {
+      user = createUser({ name, email, passwordHash });
+    } catch (error) {
+      if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        throw new ApiError('EMAIL_ALREADY_EXISTS', 'An account with this email already exists.', 409);
+      }
+      throw error;
+    }
+    startSession(req, res, user.id);
+    return res.status(201).json({ data: { user } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/auth/login', loginRateLimiter, async (req, res, next) => {
+  try {
+    const { email, password } = validateLoginInput(req.body);
+    const storedUser = findUserWithPasswordByEmail(email);
+    let passwordMatches = false;
+    if (storedUser) {
+      passwordMatches = await verifyPassword(password, storedUser.password_hash);
+    } else {
+      // Perform the same intentionally expensive work for unknown accounts so
+      // the generic error does not become a simple timing-based email oracle.
+      await hashPassword(password);
+    }
+    if (!storedUser || !passwordMatches) {
+      throw new ApiError('INVALID_CREDENTIALS', 'Email or password is incorrect.', 401);
+    }
+
+    const user = {
+      id: storedUser.id,
+      name: storedUser.name,
+      email: storedUser.email,
+      createdAt: storedUser.created_at,
+    };
+    startSession(req, res, user.id);
+    return res.json({ data: { user } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/auth/me', requireAuthentication, (req, res) => {
+  res.json({ data: { user: req.user } });
+});
+
+app.post('/api/auth/logout', (req, res, next) => {
+  try {
+    clearSession(req, res);
+    return res.status(204).end();
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/demo-bookings', requireAuthentication, (req, res, next) => {
+  try {
+    const flight = validateDemoBookingInput(req.body);
+    const demoReference = `DEMO-${randomBytes(9).toString('base64url').toUpperCase()}`;
+    const booking = createDemoBooking({ userId: req.user.id, demoReference, flight });
+    return res.status(201).json({ data: { booking } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get('/api/demo-bookings', requireAuthentication, (req, res, next) => {
+  try {
+    return res.json({ data: { bookings: listDemoBookings(req.user.id) } });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 app.get('/api/flights/search', async (req, res, next) => {
   const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';

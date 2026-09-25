@@ -47,6 +47,30 @@ export interface FlightSegment {
   duration: string;
 }
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface DemoBooking {
+  id: number;
+  userId: number;
+  demoReference: string;
+  airline: string;
+  flightNumber: string;
+  origin: string;
+  destination: string;
+  departureTime: string;
+  arrivalTime: string;
+  duration: string;
+  stops: number;
+  price: number;
+  currency: string;
+  createdAt: string;
+}
+
 export interface PredictionAnalysis {
   recommendation?: 'BUY_NOW' | 'WAIT' | 'MONITOR'; // Optional - handled by ML Prediction instead
   confidence: number;

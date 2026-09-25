@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Calendar, MapPin, TrendingUp, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CreditCard, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
+import { Search, Calendar, MapPin, TrendingUp, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
 import { Flight, PredictionAnalysis, MLPredictionState } from '../types';
 import { analyzeFlightPrice, findRealFlights } from '../services/geminiService';
 import { getMLPricePrediction } from '../services/mlPredictionService';
@@ -12,7 +12,7 @@ import FlightPathMap from './FlightPathTimeline';
 interface FlightSearchProps {
   isLoggedIn: boolean;
   onAuthRequest: () => void;
-  onBookingComplete: (flight: Flight) => void;
+  onBookingComplete: (flight: Flight) => Promise<void>;
   language?: 'en' | 'ar';
 }
 
@@ -409,7 +409,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
   // Booking Modal State
   const [selectedFlight, setSelectedFlight] = useState<Flight | null>(null);
-  const [bookingStatus, setBookingStatus] = useState<'idle' | 'processing' | 'confirmed'>('idle');
+  const [bookingStatus, setBookingStatus] = useState<'idle' | 'processing' | 'confirmed' | 'error'>('idle');
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   // Expanded Details State
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -536,22 +537,26 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     }
     setSelectedFlight(flight);
     setBookingStatus('idle');
+    setBookingError(null);
   };
 
-  const processBooking = () => {
+  const processBooking = async () => {
+    if (!selectedFlight) return;
     setBookingStatus('processing');
-    // Simulate API call delay
-    setTimeout(() => {
+    setBookingError(null);
+    try {
+      await onBookingComplete(selectedFlight);
       setBookingStatus('confirmed');
-      if (selectedFlight) {
-        onBookingComplete(selectedFlight);
-      }
-    }, 2000);
+    } catch {
+      setBookingStatus('error');
+      setBookingError('The demo record could not be saved. No booking or payment was created. Please try again.');
+    }
   };
 
   const closeBookingModal = () => {
     setSelectedFlight(null);
     setBookingStatus('idle');
+    setBookingError(null);
   };
 
   const toggleDetails = (id: string) => {
@@ -1412,7 +1417,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               <h3 className="font-bold text-lg text-slate-800 dark:text-white">
                 {bookingStatus === 'confirmed' ? t('Demo Record Saved', 'تم حفظ السجل التجريبي') : t('Booking Demonstration', 'عرض توضيحي للحجز')}
               </h3>
-              <button onClick={closeBookingModal} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition">
+              <button onClick={closeBookingModal} disabled={bookingStatus === 'processing'} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition disabled:cursor-not-allowed disabled:opacity-40">
                 <X size={20} className="text-slate-500 dark:text-slate-400" />
               </button>
             </div>
@@ -1422,7 +1427,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               {bookingStatus === 'processing' ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-4">
                   <Loader2 size={48} className="text-brand-600 animate-spin" />
-                  <p className="text-slate-500 dark:text-slate-400 font-medium">{t('Saving a local demo record — no payment is being processed...', 'جارٍ حفظ سجل تجريبي محلي — لا تتم معالجة أي دفعة...')}</p>
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">{t('Saving a demo record to your SkyWings account — no payment is being processed...', 'جارٍ حفظ سجل تجريبي في حساب SkyWings الخاص بك — لا تتم معالجة أي دفعة...')}</p>
                 </div>
               ) : bookingStatus === 'confirmed' ? (
                 <div className="text-center py-8">
@@ -1431,7 +1436,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                   </div>
                   <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{t('Demo Complete', 'اكتمل العرض التجريبي')}</h2>
                   <p className="text-slate-500 dark:text-slate-400 mb-8">
-                    No flight was booked, no payment was processed, and no ticket was issued. A clearly labeled demo record for {selectedFlight.destination} was saved in this browser only.
+                    No flight was booked, no payment was processed, and no ticket was issued. A clearly labeled demo record for {selectedFlight.destination} was saved to your SkyWings account.
                   </p>
                   <button onClick={closeBookingModal} className="w-full py-3.5 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 transition shadow-lg">
                     {t('Close Demo', 'إغلاق العرض')}
@@ -1448,7 +1453,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                       </div>
                       <div>
                         <div className="font-bold text-slate-900 dark:text-white">{selectedFlight.airline}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{selectedFlight.flightNumber} • Economy</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{selectedFlight.flightNumber}</div>
                       </div>
                     </div>
 
@@ -1479,20 +1484,21 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
                         <span>{t('Flight Fare', 'سعر الرحلة')}</span>
                         <span>{formatFlightPrice(selectedFlight)}</span>
                       </div>
-                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
-                        <span>{t('Taxes & Fees', 'الضرائب والرسوم')}</span>
-                        <span>{t('Included', 'مشمولة')}</span>
-                      </div>
                       <div className="flex justify-between font-bold text-lg text-slate-900 dark:text-white border-t border-slate-100 dark:border-slate-700 pt-3 mt-3">
-                        <span>{t('Total', 'الإجمالي')}</span>
+                        <span>{t('Displayed price', 'السعر المعروض')}</span>
                         <span>{formatFlightPrice(selectedFlight)}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Action */}
+                  {bookingError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+                      {bookingError}
+                    </div>
+                  )}
                   <button onClick={processBooking} className="w-full py-4 bg-gradient-to-r from-slate-900 to-slate-800 dark:from-white dark:to-slate-100 text-white dark:text-slate-900 font-bold rounded-xl hover:from-slate-800 hover:to-slate-700 dark:hover:from-slate-100 dark:hover:to-slate-200 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 group active:scale-[0.98] transform duration-150">
-                    <CreditCard size={20} className="group-hover:scale-110 transition-transform" />
+                    <Check size={20} className="group-hover:scale-110 transition-transform" />
                     {t('Save Demo Record', 'حفظ سجل تجريبي')} · {formatFlightPrice(selectedFlight)} display only
                   </button>
                 </div>
