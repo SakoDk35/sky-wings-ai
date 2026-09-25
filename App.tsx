@@ -159,6 +159,10 @@ const LegalDocumentModal: React.FC<LegalDocumentModalProps> = ({ document, onClo
                 <p>Flight-search criteria are sent to the SkyWings server and then to SerpApi for Google Flights results. AI prompts are sent to the SkyWings server and then to the configured AI provider. Provider credentials remain server-side and are not sent to the browser.</p>
               </section>
               <section>
+                <h3 className="font-bold text-slate-900 dark:text-white">Search logs</h3>
+                <p>For local operational logging, the server stores flight-search criteria (airport codes, travel dates, passenger count, and travel class), search status and result count, a sanitized error code when applicable, the request IP address, and a timestamp. These logs are not linked to a SkyWings account, and the current demo has no automatic retention or deletion schedule.</p>
+              </section>
+              <section>
                 <h3 className="font-bold text-slate-900 dark:text-white">Payments</h3>
                 <p>The current booking demonstration does not collect or process payment-card information.</p>
               </section>
