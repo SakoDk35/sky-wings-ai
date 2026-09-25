@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plane, LayoutDashboard, PieChart, Menu, X, Sparkles, Home, Search as SearchIcon, Map, User, LogOut, Mail, Lock, ChevronRight, Loader2, CheckCircle, Ticket, CalendarClock, History, Settings, Globe, Bell, Shield, CircleHelp, Smartphone, Moon, Sun, LifeBuoy, Calculator, Languages, MapPin, Coffee, ArrowRightLeft, FileText, ChevronLeft, ClipboardList, Plus, Trash2 } from 'lucide-react';
+import { Plane, LayoutDashboard, Menu, X, Sparkles, Home, Search as SearchIcon, User, LogOut, Mail, Lock, ChevronRight, Loader2, CheckCircle, Ticket, History, Settings, Smartphone, Moon, Sun, LifeBuoy, Calculator, Languages, ArrowRightLeft, FileText, ClipboardList } from 'lucide-react';
 import { AppView, DemoBooking, Flight, User as SkyWingsUser } from './types';
 import { FlightSearch, AirlineLogo } from './components/FlightSearch';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';

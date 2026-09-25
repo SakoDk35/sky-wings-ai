@@ -74,9 +74,6 @@ export const sendChatMessage = async (
   return data.message;
 };
 
-export const getSmartTravelTips = async (destination: string): Promise<string> =>
-  sendChatMessage(`Give me three concise general travel tips for ${destination}.`);
-
 export const generateTripItinerary = async (
   destination: string,
   typeAndLength: string,

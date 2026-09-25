@@ -1,14 +1,11 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Search, Calendar, MapPin, TrendingUp, Loader2, Users, Briefcase, Sparkles, SlidersHorizontal, Check, X, Filter, CheckCircle, ChevronDown, ChevronUp, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
+import { Search, Calendar, MapPin, TrendingUp, Loader2, Users, Briefcase, SlidersHorizontal, Check, X, Filter, CheckCircle, Luggage, Utensils, Wifi, Zap, Clock, Lock, Plane } from 'lucide-react';
 import { Flight, MLPredictionState } from '../types';
 import { findRealFlights } from '../services/geminiService';
 import { getMLPricePrediction } from '../services/mlPredictionService';
-import { analyzeBookingTiming } from '../services/bookingTimingService';
 import { analyzeDisplayedFlightPrices } from '../services/priceIntelligenceEngine';
-import { getAirportCoordinates, getMidpoint } from '../services/airportCoordinates';
 import { AirportOption, getCityName, searchAirports } from '../services/iataCodes';
-import FlightPathMap from './FlightPathTimeline';
 
 interface FlightSearchProps {
   isLoggedIn: boolean;
@@ -241,18 +238,6 @@ const getAirlineLogo = (airline: string, carrierCode?: string) => {
   return null;
 };
 
-const getFallbackLogo = (airline: string) => {
-  // Generate initials-based avatar using DiceBear API (CORS-friendly, SVG format)
-  const initials = airline
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(initials)}&backgroundColor=0ea5e9&textColor=ffffff&fontSize=36&bold=true`;
-};
-
 // Reusable Airline Logo Component that handles fallback logic
 export const AirlineLogo: React.FC<{ airline: string, carrierCode?: string, className?: string }> = ({ airline, carrierCode, className }) => {
   const [imgSrc, setImgSrc] = useState<string | null>(getAirlineLogo(airline, carrierCode));
@@ -392,12 +377,8 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
   const searchGeneration = useRef(0);
 
   useEffect(() => () => { searchGeneration.current += 1; }, []);
-  const [bookingTimings, setBookingTimings] = useState<Record<string, { optimalWindow: string; currentDaysBefore: number; recommendation: string; urgencyLevel: 'LOW' | 'MEDIUM' | 'HIGH' }>>({});
-
   // Toggle States for Expandable Sections
-  const [expandedAmenities, setExpandedAmenities] = useState<Record<string, boolean>>({});
   const [expandedML, setExpandedML] = useState<Record<string, boolean>>({});
-  const [expandedPath, setExpandedPath] = useState<Record<string, boolean>>({});
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({}); // Unified flight details
 
   // Sorting and Filtering State
@@ -410,9 +391,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
   const [selectedFlight, setSelectedFlight] = useState<Flight | null>(null);
   const [bookingStatus, setBookingStatus] = useState<'idle' | 'processing' | 'confirmed' | 'error'>('idle');
   const [bookingError, setBookingError] = useState<string | null>(null);
-
-  // Expanded Details State
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Search error state
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -429,8 +407,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     setSearching(true);
     setResults([]);
     setMlPredictionStates({});
-    setBookingTimings({});
-    setExpandedId(null);
     setSearchError(null);
 
     const formData = new FormData(e.currentTarget);
@@ -454,14 +430,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
 
       if (realFlights && realFlights.length > 0) {
         setResults(realFlights);
-        // Preserve the existing automatic booking-timing calculation. Price
-        // Analysis is derived synchronously from the displayed result set.
-        setTimeout(() => {
-          realFlights.forEach(flight => {
-            const bookingTiming = analyzeBookingTiming(flight);
-            setBookingTimings(prev => ({ ...prev, [flight.id]: bookingTiming }));
-          });
-        }, 500);
       } else {
         setSearchError('No verified live flight offers were returned for this search.');
       }
@@ -522,29 +490,12 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     setBookingError(null);
   };
 
-  const toggleDetails = (id: string) => {
-    setExpandedId(prev => prev === id ? null : id);
-  };
-
-  // Toggle Handlers for Expandable Sections
-  const toggleAmenities = (id: string) => {
-    setExpandedAmenities(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const toggleMLPrediction = (id: string) => {
     setExpandedML(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const toggleFlightPath = (id: string) => {
-    setExpandedPath(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  // Unified Flight Details Toggle - Opens Both Amenities & Path
   const toggleFlightDetails = (id: string) => {
     setExpandedDetails(prev => ({ ...prev, [id]: !prev[id] }));
-    // Also toggle both amenities and path when details is clicked
-    setExpandedAmenities(prevPrev => ({ ...prevPrev, [id]: !prevPrev[id] }));
-    setExpandedPath(prevPrev => ({ ...prevPrev, [id]: !prevPrev[id] }));
   };
 
   // Helper function to check if any detail section is expanded for a flight

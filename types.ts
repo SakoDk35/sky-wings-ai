@@ -113,12 +113,6 @@ export enum AppView {
   ANALYTICS = 'ANALYTICS',
 }
 
-export interface AnalyticData {
-  name: string;
-  value: number;
-  category?: string;
-}
-
 // Updated Types for AI Planner to match the specific "screenshot" style layout
 export interface TripDaySection {
   title: string; // e.g. "Morning / Midday (heat-friendly)"

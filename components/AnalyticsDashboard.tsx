@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, MapPin, Calendar, Sun, Heart, Loader2, Clock, Globe, Map } from 'lucide-react';
+import { Sparkles, MapPin, Sun, Heart, Loader2, Clock, Globe, Map } from 'lucide-react';
 import { generateTripItinerary } from '../services/geminiService';
 import { TripItinerary } from '../types';
 
