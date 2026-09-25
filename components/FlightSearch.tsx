@@ -437,7 +437,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     const origin = formData.get('origin') as string;
     const destination = formData.get('destination') as string;
     const date = formData.get('date') as string;
-    const returnDate = formData.get('returnDate') as string;
     const passengers = formData.get('passengers') as string;
     const travelClass = formData.get('class') as string;
 
@@ -451,7 +450,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
     }
 
     try {
-      const realFlights = await findRealFlights(origin, destination, date, returnDate, passengers, travelClass);
+      const realFlights = await findRealFlights(origin, destination, date, undefined, passengers, travelClass);
 
       if (realFlights && realFlights.length > 0) {
         setResults(realFlights);
@@ -643,7 +642,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
           <Search className="text-brand-600 dark:text-brand-400" size={24} />
           {t('Find Your Perfect Flight', 'ابحث عن رحلتك المثالية')}
         </h2>
-        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
           <AirportAutocomplete
             name="origin"
@@ -668,21 +667,6 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
               placeholder={t('Departure Date', 'تاريخ المغادرة')}
               className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
               required
-            />
-          </div>
-
-          {/* Return Date */}
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-3 rtl:left-auto rtl:right-3 flex items-center pointer-events-none">
-              <Calendar className="text-slate-400 group-focus-within:text-brand-500" size={18} />
-            </div>
-            <input
-              name="returnDate"
-              type="text"
-              onFocus={(e) => e.target.type = 'date'}
-              onBlur={(e) => { if (!e.target.value) e.target.type = 'text' }}
-              placeholder={t('Return Date', 'تاريخ العودة')}
-              className="w-full pl-10 pr-4 rtl:pl-4 rtl:pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none transition-all text-slate-900 dark:text-white placeholder-slate-400"
             />
           </div>
 
@@ -728,7 +712,7 @@ export const FlightSearch: React.FC<FlightSearchProps> = ({ isLoggedIn, onAuthRe
           <button
             type="submit"
             disabled={searching}
-            className="md:col-span-2 lg:col-span-2 bg-gradient-to-r from-brand-600 to-sky-600 hover:from-brand-700 hover:to-sky-700 text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-brand-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="bg-gradient-to-r from-brand-600 to-sky-600 hover:from-brand-700 hover:to-sky-700 text-white font-semibold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-brand-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             {searching ? <Loader2 className="animate-spin" size={20} /> : t('Search Flights', 'بحث عن الرحلات')}
           </button>

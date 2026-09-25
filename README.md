@@ -53,6 +53,8 @@ Vite proxies `/api` to `http://127.0.0.1:3001` during development. Do not use
 ## Truthfulness boundaries
 
 - Flight results are normalized from SerpApi Google Flights and retain the requested provider currency.
+- The current flight-search demo supports one-way flight searches. Complete
+  round-trip itinerary selection is outside the current project scope.
 - No provider failure produces simulated flight inventory.
 - AI output is planning guidance, not a reservation or authoritative immigration advice.
 - Flight search uses live third-party provider data. The separate ML price output
