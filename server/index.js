@@ -175,38 +175,137 @@ const validateLoginInput = (body) => {
   return { email, password };
 };
 
+const invalidBookingSnapshot = (message) => {
+  throw new ApiError('INVALID_BOOKING_SNAPSHOT', message, 400);
+};
+
+const validateBookingDateTime = (value, field) => {
+  if (typeof value !== 'string') {
+    invalidBookingSnapshot(`${field} must be a valid local date and time.`);
+  }
+
+  const normalized = value.trim();
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) {
+    invalidBookingSnapshot(`${field} must use YYYY-MM-DDTHH:mm or YYYY-MM-DDTHH:mm:ss.`);
+  }
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = '00'] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  if (
+    year < 1 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth[month - 1] ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  ) {
+    invalidBookingSnapshot(`${field} must contain a real calendar date and valid 24-hour time.`);
+  }
+
+  return normalized;
+};
+
+const validateBookingDuration = (value) => {
+  if (typeof value !== 'string') {
+    invalidBookingSnapshot('duration must use the normalized provider format.');
+  }
+
+  const normalized = value.trim();
+  const match = normalized.match(/^(?:(\d+)h(?: ([1-5]?\d)m)?|([1-9]\d*)m)$/);
+  if (!match) {
+    invalidBookingSnapshot('duration must use a positive format such as 45m, 4h, or 4h 20m.');
+  }
+
+  const hours = match[1] === undefined ? 0 : Number(match[1]);
+  const hourMinutes = match[2] === undefined ? 0 : Number(match[2]);
+  const minutesOnly = match[3] === undefined ? 0 : Number(match[3]);
+  const totalMinutes = hours * 60 + hourMinutes + minutesOnly;
+  const isNormalized = hours > 0
+    ? match[2] === undefined || hourMinutes > 0
+    : minutesOnly > 0 && minutesOnly < 60;
+
+  if (!isNormalized || !Number.isSafeInteger(totalMinutes) || totalMinutes > 10_080) {
+    invalidBookingSnapshot('duration must be a positive normalized duration of no more than 7 days.');
+  }
+
+  return normalized;
+};
+
 const validateDemoBookingInput = (body) => {
   const flight = body?.flight;
   if (!flight || typeof flight !== 'object' || Array.isArray(flight)) {
-    throw new ApiError('INVALID_REQUEST', 'A flight snapshot is required.', 400);
+    invalidBookingSnapshot('A flight snapshot is required.');
   }
 
-  const origin = requiredText(flight.origin, 'origin', 3).toUpperCase();
-  const destination = requiredText(flight.destination, 'destination', 3).toUpperCase();
-  const stops = Number(flight.stops);
-  const price = Number(flight.price);
-  const currency = requiredText(flight.currency, 'currency', 3).toUpperCase();
-  if (!/^[A-Z]{3}$/.test(origin) || !/^[A-Z]{3}$/.test(destination) || origin === destination) {
-    throw new ApiError('INVALID_REQUEST', 'Origin and destination must be different three-letter IATA codes.', 400);
+  const normalizeAirport = (value, field) => {
+    if (typeof value !== 'string') {
+      invalidBookingSnapshot(`${field} must be a three-letter IATA code.`);
+    }
+    const normalized = value.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(normalized)) {
+      invalidBookingSnapshot(`${field} must be a three-letter IATA code.`);
+    }
+    return normalized;
+  };
+
+  const origin = normalizeAirport(flight.origin, 'origin');
+  const destination = normalizeAirport(flight.destination, 'destination');
+  const { stops, price } = flight;
+  const currency = typeof flight.currency === 'string' ? flight.currency.trim().toUpperCase() : '';
+
+  if (origin === destination) {
+    invalidBookingSnapshot('Origin and destination must be different airports.');
   }
-  if (!Number.isInteger(stops) || stops < 0 || stops > 20) {
-    throw new ApiError('INVALID_REQUEST', 'Stops must be a non-negative integer.', 400);
+  if (typeof stops !== 'number' || !Number.isInteger(stops) || stops < 0 || stops > 10) {
+    invalidBookingSnapshot('stops must be an integer between 0 and 10.');
   }
-  if (!Number.isFinite(price) || price <= 0 || price > 10_000_000) {
-    throw new ApiError('INVALID_REQUEST', 'Price must be a positive number.', 400);
+  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0 || price > 100_000) {
+    invalidBookingSnapshot('price must be a finite number greater than 0 and no more than 100000.');
   }
-  if (!/^[A-Z]{3}$/.test(currency)) {
-    throw new ApiError('INVALID_REQUEST', 'Currency must be a three-letter ISO code.', 400);
+  if (currency !== 'USD') {
+    invalidBookingSnapshot('currency must be USD for the current demo booking flow.');
   }
+
+  if (typeof flight.airline !== 'string') {
+    invalidBookingSnapshot('airline must be a nonempty string.');
+  }
+  const airline = flight.airline.trim();
+  if (!airline || airline.length > 500 || /[\u0000-\u001F\u007F]/.test(airline)) {
+    invalidBookingSnapshot('airline must be nonempty, at most 500 characters, and contain no control characters.');
+  }
+
+  if (typeof flight.flightNumber !== 'string') {
+    invalidBookingSnapshot('flightNumber must use the normalized provider format.');
+  }
+  const flightNumber = flight.flightNumber.trim();
+  const flightNumberPattern = /^[A-Z0-9]{2}\s?[0-9]{1,5}[A-Z]?(?:\s*\/\s*[A-Z0-9]{2}\s?[0-9]{1,5}[A-Z]?)*$/;
+  if (!flightNumber || flightNumber.length > 200 || !flightNumberPattern.test(flightNumber)) {
+    invalidBookingSnapshot('flightNumber must contain valid provider flight identifiers separated by /.');
+  }
+
+  const departureTime = validateBookingDateTime(flight.departureTime, 'departureTime');
+  const arrivalTime = validateBookingDateTime(flight.arrivalTime, 'arrivalTime');
+  const duration = validateBookingDuration(flight.duration);
 
   return {
-    airline: requiredText(flight.airline, 'airline', 120),
-    flightNumber: requiredText(flight.flightNumber, 'flightNumber', 40),
+    airline,
+    flightNumber,
     origin,
     destination,
-    departureTime: requiredText(flight.departureTime, 'departureTime', 100),
-    arrivalTime: requiredText(flight.arrivalTime, 'arrivalTime', 100),
-    duration: requiredText(flight.duration, 'duration', 100),
+    departureTime,
+    arrivalTime,
+    duration,
     stops,
     price,
     currency,
